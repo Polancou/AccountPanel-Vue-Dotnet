@@ -1,10 +1,10 @@
 # BaseApp: Plantilla de API Profesional con ASP.NET Core y Arquitectura Limpia
 
-`BaseApp` es una plantilla de proyecto de alto rendimiento, diseñada como un punto de partida robusto y escalable para construir APIs web modernas y seguras con ASP.NET Core. Incorpora un conjunto de las mejores prácticas de la industria, incluyendo una estricta **Arquitectura Limpia (Clean Architecture)** para garantizar la máxima separación de responsabilidades, mantenibilidad y testeabilidad.
+`BaseApp` es una plantilla diseñada como un punto de partida para construir APIs web con ASP.NET Core. Incorpora un conjunto de las mejores prácticas de la industria, incluyendo una estricta **Clean Architecture** para garantizar la máxima separación de responsabilidades, mantenibilidad y testeabilidad.
 
 ## ✨ Características Principales
 
-Esta plantilla no es solo un "Hola Mundo", es una base lista para producción que incluye:
+Esta plantilla es una base lista para producción que incluye:
 
 -   **Arquitectura Limpia y Escalable:**
     -   **Proyecto Domain:** Contiene las entidades y la lógica de negocio más pura, sin dependencias externas.

@@ -1,0 +1,183 @@
+<script setup lang="ts">
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import { onMounted, ref } from 'vue';
+import { useAuthStore } from '@/stores/auth'
+
+// Obtenemos la instancia de la auth store.
+const authStore = useAuthStore();
+
+// Variable para controlar el modo de edición del perfil
+const isEditing = ref(false);
+
+// Datos editables del perfil
+const editableProfile = ref({
+  nombreCompleto: '',
+  numeroTelefono: ''
+});
+
+/**
+ * Acción que se ejecuta antes de reenderizar la vista.
+ */
+onMounted(async () => {
+  // Solamente carga los datos si el usuario está autenticado pero los datos son null.
+  if (authStore.isAuthenticated && !authStore.userProfile)
+    await authStore.fetchProfile();
+});
+
+/**
+ * Función para habilitar el modo de edición del perfil.
+ */
+const enableEditing = () => {
+  if (authStore.userProfile) {
+    // Inicializa los datos editables con los datos actuales del perfil
+    editableProfile.value.nombreCompleto = authStore.userProfile.nombreCompleto;
+    editableProfile.value.numeroTelefono = authStore.userProfile.numeroTelefono;
+  }
+  isEditing.value = true; // Activa el modo edición
+};
+
+/**
+ * Función para manejar el guardado de los cambios en el perfil.
+ */
+const handleSaveChanges = async () => {
+  if (!authStore.userProfile) return; // Seguridad adicional
+  await authStore.updateProfile({
+    nombreCompleto: editableProfile.value.nombreCompleto,
+    numeroTelefono: editableProfile.value.numeroTelefono
+  });
+  isEditing.value = false; // Salir del modo edición después de guardar
+};
+
+/**
+ * Función para cancelar la edición del perfil.
+ */
+const cancelEdit = () => {
+  if (authStore.userProfile) {
+    // Revertir los cambios en los datos editables
+    editableProfile.value.nombreCompleto = authStore.userProfile.nombreCompleto;
+    editableProfile.value.numeroTelefono = authStore.userProfile.numeroTelefono;
+  }
+  isEditing.value = false; // Salir del modo edición
+};
+</script>
+
+<template>
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Mi Perfil</h1>
+
+    <LoadingSpinner v-if="authStore.isLoading" />
+
+    <div v-else-if="authStore.error"
+      class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative dark:bg-red-900 dark:border-red-700 dark:text-red-300"
+      role="alert">
+      <strong class="font-bold">Error:</strong>
+      <span class="block sm:inline">{{ authStore.error }}</span>
+    </div>
+
+    <div v-else-if="authStore.userProfile" class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+      <div class="px-4 py-5 sm:px-6">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
+          Información Personal
+        </h3>
+        <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+          Detalles de tu cuenta
+        </p>
+      </div>
+
+      <div v-if="!isEditing" class="border-t border-gray-200 dark:border-gray-700">
+        <dl>
+          <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Nombre Completo
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+              {{ authStore.userProfile.nombreCompleto }}
+            </dd>
+          </div>
+          <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Email
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+              {{ authStore.userProfile.email }}
+            </dd>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Teléfono
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+              {{ authStore.userProfile.numeroTelefono }}
+            </dd>
+          </div>
+          <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Rol
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+              {{ authStore.userProfile.rol }}
+            </dd>
+          </div>
+          <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Fecha Registro
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+              {{ new Date(authStore.userProfile.fechaRegistro).toLocaleDateString() }}
+            </dd>
+          </div>
+          <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:px-6 text-right">
+            <button @click="enableEditing"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+              Editar Perfil
+            </button>
+          </div>
+        </dl>
+      </div>
+      <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+          <form @submit.prevent="handleSaveChanges" class="space-y-4">
+            <div>
+              <label for="editNombreCompleto" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre
+                Completo</label>
+              <input v-model="editableProfile.nombreCompleto" id="editNombreCompleto" type="text" required
+                class="block w-full px-3 py-2 mt-1 rounded-md shadow-sm sm:text-sm text-gray-900 bg-gray-50 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+            </div>
+
+            <div>
+              <label for="editNumeroTelefono" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Número
+                de
+                Teléfono</label>
+              <input v-model="editableProfile.numeroTelefono" id="editNumeroTelefono" type="tel" required
+                class="block w-full px-3 py-2 mt-1 rounded-md shadow-sm sm:text-sm text-gray-900 bg-gray-50 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+              <button type="button" @click="cancelEdit" :disabled="authStore.isLoading"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-500">
+                Cancelar
+              </button>
+              <button type="submit" :disabled="authStore.isLoading"
+                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                {{ authStore.isLoading ? 'Guardando...' : 'Guardar Cambios' }}
+              </button>
+            </div>
+
+            <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
+              {{ authStore.error }}
+            </p>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="text-center py-10">
+      <p class="text-gray-600 dark:text-gray-400">
+        No se pudo cargar la información del perfil.
+      </p>
+    </div>
+  </div>
+</template>
+
+<style scoped></style>
