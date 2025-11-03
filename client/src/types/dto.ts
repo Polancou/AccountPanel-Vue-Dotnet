@@ -1,29 +1,28 @@
-// Estos tipos deben coincidir con los DTOs de tu backend en .NET
+// DTOs (Data Transfer Objects) para la aplicación
 
+// DTO para el login de usuario
 export interface LoginUsuarioDto {
   email: string;
-  password?: string; // Password puede ser opcional si usas login externo
+  password?: string;
 }
-
+// DTO para el registro de usuario
 export interface RegistroUsuarioDto {
   nombreCompleto: string;
   email: string;
   password?: string;
   numeroTelefono: string;
 }
-
+// DTO para el perfil de usuario
 export interface PerfilUsuarioDto {
   id: number;
   nombreCompleto: string;
   email: string;
   numeroTelefono: string;
   rol: string;
-  fechaRegistro: string; // O Date si lo parseas
+  fechaRegistro: string;
 }
-
+// DTO para actualizar el perfil de usuario
 export interface ActualizarPerfilDto {
   nombreCompleto: string;
   numeroTelefono: string;
 }
-
-// Puedes añadir ExternalLoginDto aquí también si lo necesitas

@@ -1,6 +1,0 @@
-@TaxiApp.Backend_HostAddress = http://localhost:5272
-
-GET {{TaxiApp.Backend_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

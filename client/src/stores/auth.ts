@@ -1,42 +1,48 @@
 // Importaciones de Vue y Pinia
-import {computed, ref} from 'vue' // 'ref' para estado reactivo, 'computed' para getters
-import {defineStore} from 'pinia' // La función principal para definir un store
+import { computed, ref } from 'vue' // 'ref' para estado reactivo, 'computed' para getters
+import { defineStore } from 'pinia' // La función principal para definir un store
 // Importaciones para llamadas a API y enrutamiento
 import axios from 'axios' // Para hacer las peticiones HTTP
-import {useRouter} from 'vue-router' // Para redirigir al usuario (ej. después del login)
+import { useRouter } from 'vue-router' // Para redirigir al usuario (ej. después del login)
 // Importaciones para DTO
-import type {LoginUsuarioDto, RegistroUsuarioDto} from "@/types/dto.ts";
+import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto } from "@/types/dto.ts";
 
-// Define el ID único del store. Por convención, se usa 'auth'.
+/**
+ * Store de autenticación usando Pinia.
+ * Maneja el estado del usuario, acciones de login, logout y registro.
+ */
 export const useAuthStore = defineStore('auth', () => {
-// --- State ---
 
-  // El token JWT. Lo inicializamos intentando leerlo desde localStorage.
-  // Si existe un token guardado, el usuario ya podría estar logueado.
-  // Usamos <string | null> para indicar a TypeScript que puede ser una cadena o nulo.
-  const token = ref<string | null>(localStorage.getItem('authToken'))
-  // Aplicamos lo mismo para el correo del usuario
-  const userEmail = ref<string | null>(localStorage.getItem('userEmail'))
+  // --- State ---
+
+  // Definimos el token, usamos <string | null> para indicar que puede ser una cadena o nulo.
+  const token = ref<string | null>(null)
   // Para mostrar indicadores de carga en la UI mientras se hacen llamadas a la API.
   const isLoading = ref<boolean>(false)
   // Para mostrar mensajes de error al usuario.
   const error = ref<string | null>(null)
+  // Estado para almacenar el perfil del usuario
+  const userProfile = ref<PerfilUsuarioDto | null>(null)
+
   // Obtenemos una instancia del router para usarla en las acciones.
   const router = useRouter()
 
   // --- Getters ---
 
   // Un getter computado que devuelve true si existe un token, false si no.
-  // Es reactivo: si 'token.value' cambia, 'isAuthenticated' se recalcula automáticamente.
   const isAuthenticated = computed<boolean>(() => !!token.value)
-  // El !! convierte un valor (string o null) a su equivalente booleano (true o false).
 
   // --- Actions ---
 
-  // Acción para iniciar sesión
+  /**
+   * Acción para iniciar sesión del usuario
+   * @param credentials Credenciales de login (email y password)
+   */
   async function login(credentials: LoginUsuarioDto): Promise<void> {
-    isLoading.value = true // Inicia el estado de carga
-    error.value = null // Limpia errores previos
+    // Inicia el estado de carga
+    isLoading.value = true
+    // Limpia errores previos
+    error.value = null
     try {
       // Llamada a la API (POST a /api/v1/auth/login)
       const response = await axios.post<{ token: string }>('/api/v1/auth/login', credentials)
@@ -46,7 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Guarda el valor del token en el localstorage para persistir
       localStorage.setItem('token', newToken)
       // Redirige a la página de perfil
-      router.push({name: 'profile'})
+      router.push({ name: 'profile' })
     } catch (err: any) {
       // Cuando ocurre una exception, se actualiza el mensaje del usuario
       error.value = err.response?.data?.message || 'Error al iniciar sesión.'
@@ -56,10 +62,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Acción para registrar usuario
+  /**
+   * Acción para registrar usuario
+   * @param userData Datos del usuario para registro
+   * @returns boolean que indica si el registro fue exitoso
+   */
   async function register(userData: RegistroUsuarioDto): Promise<boolean> {
-    isLoading.value = true // Inicia el estado de carga
-    error.value = null // Limpia errores previos
+    // Inicia el estado de carga
+    isLoading.value = true
+    // Limpia errores previos
+    error.value = null
     try {
       // Llamada a la API (/api/v1/auth/register)
       await axios.post('/api/v1/auth/register', userData)
@@ -76,27 +88,111 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Función auxiliar para limpiar el estado y el localstorage
-  function logoutLocally(): void{
+  /**
+   * Función interna para limpiar el estado local al hacer logout
+   */
+  function logoutLocally(): void {
     // Reinicia el valor del token
     token.value = null
-    // Remueve los datos del usuario
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('userEmail')
   }
 
-  // Acción que finaliza la sesión del usuario
+  /**
+   * Acción para cerrar la sesión del usuario
+   */
   async function logout(): Promise<void> {
     logoutLocally() // Limpia el estado actual
     // Redirige a la página de login
-    router.push({name: 'login'})
+    router.push({ name: 'login' })
   }
 
-  // Al final, retornaremos estas refs
-  return {
-    // props
-    token, isLoading, error, userEmail, isAuthenticated,
-    // actions
-    login, logout, register
+  /**
+   * Acción para obtener el perfil del usuario autenticado
+   */
+  async function fetchProfile(): Promise<void> {
+    // Solo intenta obtener el perfil si hay un token
+    if (!token.value) return
+    // Inicia el estado de carga
+    isLoading.value = true
+    // Limpia errores previos
+    error.value = null
+    try {
+      // Llamada a la API para obtener el perfil del usuario
+      const response = await axios.get<PerfilUsuarioDto>('/api/v1/profile/me', {
+        headers: {
+          Authorization: `Bearer ${token.value}` // Incluye el token en los headers
+        }
+      })
+      // Actualiza el estado reactivo del perfil del usuario
+      userProfile.value = response.data
+    } catch (error: any) {
+      // Actualiza el mensaje de error para el usuario
+      error.value = error.response?.data?.message || 'Error al cargar el perfil.';
+      // Si no está autorizado, cierra sesión localmente
+      if (error.response?.status === 401) logoutLocally()
+    } finally {
+      // Finaliza el loop de carga
+      isLoading.value = false
+    }
   }
-})
+
+  /**
+   * Actualiza los datos del perfil del usuario autenticado en la API.
+   * @param profileData - DTO con los nuevos datos (nombre, teléfono).
+   * @returns boolean - True si la actualización fue exitosa, false si falló.
+   */
+  async function updateProfile(profileData: ActualizarPerfilDto): Promise<boolean> {
+    // Verifica si hay token antes de intentar la llamada
+    if (!token.value) {
+      error.value = "No estás autenticado.";
+      return false;
+    }
+
+    isLoading.value = true;
+    error.value = null; // Limpia errores previos
+    try {
+      // Realiza la petición PUT al endpoint /api/v1/profile/me
+      // Incluye el token en la cabecera Authorization
+      await axios.put('/api/v1/profile/me', profileData, {
+        headers: {
+          'Authorization': `Bearer ${token.value}`
+        }
+      });
+
+      // Si la petición PUT fue exitosa:
+      // Actualiza el estado local del perfil con los nuevos datos.
+      if (userProfile.value) {
+        userProfile.value = {
+          ...userProfile.value, // Mantiene los datos existentes (ID, Email, Rol, Fecha...)
+          nombreCompleto: profileData.nombreCompleto, // Actualiza el nombre
+          numeroTelefono: profileData.numeroTelefono // Actualiza el teléfono
+        };
+      } else {
+        // Se llama el fetchProfile para obtener el estado completo y actualizado.
+        await fetchProfile();
+      }
+
+      return true; // Indica éxito
+
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Error al actualizar el perfil.';
+      // Si el error es 401 (token inválido), cierra sesión localmente
+      if (err.response?.status === 401) {
+        logoutLocally();
+      }
+      return false; // Indica fallo
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  return {
+    // Exporta las props
+    token, isLoading, error, isAuthenticated, userProfile,
+    // Exporta los actions
+    login, logout, register, fetchProfile, updateProfile
+  }
+},
+  {
+    // Habilita la persistencia automática del store
+    persist: true
+  }) 
