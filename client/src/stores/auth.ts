@@ -5,7 +5,9 @@ import { defineStore } from 'pinia' // La función principal para definir un sto
 import axios from 'axios' // Para hacer las peticiones HTTP
 import { useRouter } from 'vue-router' // Para redirigir al usuario (ej. después del login)
 // Importaciones para DTO
-import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto } from "@/types/dto.ts";
+import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto } from "@/types/dto.ts"
+// Importación de Toast de Vue Sonner
+import { toast } from 'vue-sonner'
 
 /**
  * Store de autenticación usando Pinia.
@@ -48,14 +50,19 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await axios.post<{ token: string }>('/api/v1/auth/login', credentials)
       // Si la respuesta es exitosa
       const newToken = response.data.token
-      token.value = newToken // Actualiza el estado reactivo del token
-      // Guarda el valor del token en el localstorage para persistir
-      localStorage.setItem('token', newToken)
+      // Actualiza el estado reactivo del token
+      token.value = newToken
+      // Muestra un toast de vue sonner indicando que la sesión se inició correctamente
+      toast.success('Sesión iniciada correctamente');
       // Redirige a la página de perfil
       router.push({ name: 'profile' })
     } catch (err: any) {
+      // Obtiene el mensaje de error
+      const message = err.response?.data?.message || 'Error al iniciar sesión.'
+      // Muestra un toast de vue sonner indicando que ocurrió un error
+      toast.error(message);
       // Cuando ocurre una exception, se actualiza el mensaje del usuario
-      error.value = err.response?.data?.message || 'Error al iniciar sesión.'
+      error.value = message
     } finally {
       // Finaliza el loop de carga, independientemente del resultado
       isLoading.value = false
@@ -75,11 +82,19 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // Llamada a la API (/api/v1/auth/register)
       await axios.post('/api/v1/auth/register', userData)
+      // Muestra un toast de vue sonner indicando que el registro fue exitoso
+      toast.success('Registro exitoso', {
+        description: '¡Ahora puedes iniciar sesión!'
+      });
       // Indica que el registro fue exitoso
       return true
     } catch (err: any) {
+      // Obtiene el mensaje de error
+      const message = err.response?.data?.message || 'Error al registrarse.'
+      // Muestra un toast de vue sonner indicando que ocurrió un error
+      toast.error(message);
       // Cuando ocurre una exception, se actualiza el mensaje del usuario
-      error.value = err.response?.data?.message || 'Error al registrarse.'
+      error.value = message
       // Indica que el registro falló
       return false
     } finally {
@@ -94,6 +109,12 @@ export const useAuthStore = defineStore('auth', () => {
   function logoutLocally(): void {
     // Reinicia el valor del token
     token.value = null
+    // Reinicia el estado de perfil
+    userProfile.value = null
+    // Reinicia el estado de la carga
+    isLoading.value = false
+    // Reinicia el mensaje de error
+    error.value = null
   }
 
   /**
@@ -126,7 +147,7 @@ export const useAuthStore = defineStore('auth', () => {
       userProfile.value = response.data
     } catch (error: any) {
       // Actualiza el mensaje de error para el usuario
-      error.value = error.response?.data?.message || 'Error al cargar el perfil.';
+      error.value = error.response?.data?.message || 'Error al cargar el perfil.'
       // Si no está autorizado, cierra sesión localmente
       if (error.response?.status === 401) logoutLocally()
     } finally {
@@ -144,7 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Verifica si hay token antes de intentar la llamada
     if (!token.value) {
       error.value = "No estás autenticado.";
-      return false;
+      return false
     }
 
     isLoading.value = true;
@@ -171,17 +192,25 @@ export const useAuthStore = defineStore('auth', () => {
         await fetchProfile();
       }
 
-      return true; // Indica éxito
+      // Muestra un toast de vue sonner indicando que el perfil se actualizó correctamente
+      toast.success('Perfil actualizado correctamente')
+      // Indica éxito
+      return true;
 
     } catch (err: any) {
-      error.value = err.response?.data?.message || 'Error al actualizar el perfil.';
+      // Obtiene el mensaje de error
+      const message = err.response?.data?.message || 'Error al actualizar el perfil.'
+      // Muestra un toast de vue sonner indicando que ocurrió un error
+      toast.error(message)
+
+      error.value = message;
       // Si el error es 401 (token inválido), cierra sesión localmente
       if (err.response?.status === 401) {
         logoutLocally();
       }
       return false; // Indica fallo
     } finally {
-      isLoading.value = false;
+      isLoading.value = false
     }
   }
 

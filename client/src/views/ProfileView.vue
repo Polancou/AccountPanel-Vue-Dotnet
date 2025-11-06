@@ -4,6 +4,9 @@ import { onMounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
+import { Form } from 'vee-validate';
+import { z } from 'zod';
+import { toTypedSchema } from '@vee-validate/zod';
 
 // Obtenemos la instancia de la auth store.
 const authStore = useAuthStore();
@@ -11,7 +14,19 @@ const authStore = useAuthStore();
 // Variable para controlar el modo de edición del perfil
 const isEditing = ref(false);
 
-// Datos editables del perfil
+// Define el esquema de validación con Zod
+const updateProfileSchema = toTypedSchema(
+  z.object({
+    nombreCompleto: z.string()
+      .nonempty('El nombre es obligatorio.')
+      .min(3, 'El nombre debe tener al menos 3 caracteres.')
+      .max(100, 'El nombre no puede tener más de 100 caracteres.'),
+    numeroTelefono: z.string()
+      .nonempty('El número de teléfono es obligatorio.')
+  })
+);
+
+// Se define el estado inicial de los datos editables del perfil
 const editableProfile = ref({
   nombreCompleto: '',
   numeroTelefono: ''
@@ -29,7 +44,7 @@ onMounted(async () => {
 /**
  * Función para habilitar el modo de edición del perfil.
  */
-const enableEditing = () => {
+const enableEditing = (values: any) => {
   if (authStore.userProfile) {
     // Inicializa los datos editables con los datos actuales del perfil
     editableProfile.value.nombreCompleto = authStore.userProfile.nombreCompleto;
@@ -41,25 +56,21 @@ const enableEditing = () => {
 /**
  * Función para manejar el guardado de los cambios en el perfil.
  */
-const handleSaveChanges = async () => {
-  if (!authStore.userProfile) return; // Seguridad adicional
-  await authStore.updateProfile({
-    nombreCompleto: editableProfile.value.nombreCompleto,
-    numeroTelefono: editableProfile.value.numeroTelefono
-  });
-  isEditing.value = false; // Salir del modo edición después de guardar
+const handleSaveChanges = async (values: any) => {
+  // Seguridad adicional: solo se puede guardar si el perfil está cargado
+  if (!authStore.userProfile) return
+  // Guardamos los cambios en el estado local
+  await authStore.updateProfile(values)
+  // Salimos del modo de edición
+  isEditing.value = false
 };
 
 /**
  * Función para cancelar la edición del perfil.
  */
 const cancelEdit = () => {
-  if (authStore.userProfile) {
-    // Revertir los cambios en los datos editables
-    editableProfile.value.nombreCompleto = authStore.userProfile.nombreCompleto;
-    editableProfile.value.numeroTelefono = authStore.userProfile.numeroTelefono;
-  }
-  isEditing.value = false; // Salir del modo edición
+  isEditing.value = false;
+  authStore.error = null;
 };
 </script>
 
@@ -137,11 +148,10 @@ const cancelEdit = () => {
       </div>
       <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:px-6">
-          <form @submit.prevent="handleSaveChanges" class="space-y-4">
-            <BaseInput v-model="editableProfile.nombreCompleto" label="Nombre Completo" id="editNombreCompleto"
-              type="text" required />
-            <BaseInput v-model="editableProfile.numeroTelefono" label="Número de Teléfono" id="editNumeroTelefono"
-              type="tel" required />
+          <Form @submit="handleSaveChanges" :validation-schema="updateProfileSchema" :initial-values="editableProfile"
+            v-slot="{ meta }" class="space-y-4">
+            <BaseInput name="nombreCompleto" label="Nombre Completo" id="editNombreCompleto" type="text" required />
+            <BaseInput name="numeroTelefono" label="Número de Teléfono" id="editNumeroTelefono" type="tel" required />
 
             <div class="flex justify-end space-x-3 pt-4">
 
@@ -158,7 +168,7 @@ const cancelEdit = () => {
               {{ authStore.error }}
             </p>
 
-          </form>
+          </Form>
         </div>
       </div>
     </div>
