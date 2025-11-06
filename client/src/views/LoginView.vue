@@ -1,28 +1,33 @@
 <script setup lang="ts">
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
-import type { LoginUsuarioDto } from '@/types/dto'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import { Form } from 'vee-validate'
+import { z } from 'zod'
+import { toTypedSchema } from '@vee-validate/zod'
 
 // Accedemos al store de autenticación
 const authStore = useAuthStore()
 // Accedemos al router para navegación
 const router = useRouter()
-// Variables reactivas para el formulario de login
-const credentials = ref<LoginUsuarioDto>({
-  email: "",
-  password: "",
-})
+
+// Define el esquema de validación con Zod
+const loginSchema = toTypedSchema(
+  z.object({
+    // Coincide con las reglas de validación para el inicio de sesión
+    email: z.string().nonempty('El email es obligatorio.').email('El formato del email no es válido.'),
+    password: z.string().nonempty('La contraseña es obligatoria.')
+  })
+)
 
 /**
  * Función para manejar el inicio de sesión
  */
-const handleLogin = async () => {
+const handleLogin = async (values: any) => {
   console.log("Intentando procesar inciar sesion")
-  await authStore.login(credentials.value)
+  await authStore.login(values)
   console.log("Proceso de inicio de sesion finalizado")
 }
 
@@ -42,12 +47,9 @@ const goToRegister = () => {
         Iniciar Sesión
       </h2>
 
-      <form @submit.prevent="handleLogin" class="space-y-6">
-        <BaseInput v-model="credentials.email" label="Email" id="email" type="email"
-          placeholder="Ingresar correo electrónico" required />
-        <BaseInput v-model="credentials.password" label="Contraseña" id="password" type="password"
-          placeholder="Ingresar contraseña" required />
-
+      <Form @submit="handleLogin" :validation-schema="loginSchema" v-slot="{ meta }" class="space-y-6">
+        <BaseInput label="Email" id="email" name="email" type="email" placeholder="Ingresar correo electrónico" />
+        <BaseInput label="Contraseña" id="password" name="password" type="password" placeholder="Ingresar contraseña" />
         <div>
           <LoadingSpinner v-if="authStore.isLoading" />
           <BaseButton type="submit" :disabled="authStore.isLoading" :fullWidth="true">
@@ -58,7 +60,7 @@ const goToRegister = () => {
         <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
           {{ authStore.error }}
         </p>
-      </form>
+      </Form>
 
       <p class="text-sm text-center text-gray-600 dark:text-gray-400">
         ¿No tienes cuenta?
