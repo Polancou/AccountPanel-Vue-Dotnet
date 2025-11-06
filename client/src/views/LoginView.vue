@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import LoadingSpinner from '@/components/LoadingSpinner.vue' // Componente de carga
-import { ref } from 'vue' // ref para variables reactivas
-import { useAuthStore } from '@/stores/auth' // Nuestro store de Pinia
-import { useRouter } from 'vue-router' // Para navegar
-import type { LoginUsuarioDto } from '@/types/dto' // Tipo para las credenciales
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import { ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+import type { LoginUsuarioDto } from '@/types/dto'
+import BaseInput from '@/components/common/BaseInput.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 // Accedemos al store de autenticación
 const authStore = useAuthStore()
@@ -41,30 +43,16 @@ const goToRegister = () => {
       </h2>
 
       <form @submit.prevent="handleLogin" class="space-y-6">
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Email
-          </label>
-          <input v-model="credentials.email" id="email" name="email" type="email" required
-            class="block w-full px-3 py-2 mt-1 text-gray-900 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            placeholder="Ingresar correo electrónico" />
-        </div>
-
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Contraseña
-          </label>
-          <input v-model="credentials.password" id="password" name="password" type="password" required
-            class="block w-full px-3 py-2 mt-1 text-gray-900 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            placeholder="Ingresar contraseña" />
-        </div>
+        <BaseInput v-model="credentials.email" label="Email" id="email" type="email"
+          placeholder="Ingresar correo electrónico" required />
+        <BaseInput v-model="credentials.password" label="Contraseña" id="password" type="password"
+          placeholder="Ingresar contraseña" required />
 
         <div>
           <LoadingSpinner v-if="authStore.isLoading" />
-          <button type="submit" :disabled="authStore.isLoading"
-            class="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+          <BaseButton type="submit" :disabled="authStore.isLoading" :fullWidth="true">
             Iniciar Sesión
-          </button>
+          </BaseButton>
         </div>
 
         <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
@@ -74,8 +62,8 @@ const goToRegister = () => {
 
       <p class="text-sm text-center text-gray-600 dark:text-gray-400">
         ¿No tienes cuenta?
-        <button @click="goToRegister"
-          class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-blue-500 dark:hover:text-blue-400">
+        <button type="button" @click="goToRegister"
+          class="font-medium cursor-pointer text-indigo-600 hover:text-indigo-500 dark:text-blue-500 dark:hover:text-blue-400">
           Regístrate aquí
         </button>
       </p>

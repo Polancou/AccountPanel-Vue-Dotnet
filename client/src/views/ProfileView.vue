@@ -2,6 +2,8 @@
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import { onMounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth'
+import BaseInput from '@/components/common/BaseInput.vue';
+import BaseButton from '@/components/common/BaseButton.vue';
 
 // Obtenemos la instancia de la auth store.
 const authStore = useAuthStore();
@@ -127,40 +129,25 @@ const cancelEdit = () => {
             </dd>
           </div>
           <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:px-6 text-right">
-            <button @click="enableEditing"
-              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+            <BaseButton @click="enableEditing">
               Editar Perfil
-            </button>
+            </BaseButton>
           </div>
         </dl>
       </div>
       <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:px-6">
           <form @submit.prevent="handleSaveChanges" class="space-y-4">
-            <div>
-              <label for="editNombreCompleto" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre
-                Completo</label>
-              <input v-model="editableProfile.nombreCompleto" id="editNombreCompleto" type="text" required
-                class="block w-full px-3 py-2 mt-1 rounded-md shadow-sm sm:text-sm text-gray-900 bg-gray-50 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-            </div>
-
-            <div>
-              <label for="editNumeroTelefono" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Número
-                de
-                Teléfono</label>
-              <input v-model="editableProfile.numeroTelefono" id="editNumeroTelefono" type="tel" required
-                class="block w-full px-3 py-2 mt-1 rounded-md shadow-sm sm:text-sm text-gray-900 bg-gray-50 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-            </div>
+            <BaseInput v-model="editableProfile.nombreCompleto" label="Nombre Completo" id="editNombreCompleto"
+              type="text" required />
+            <BaseInput v-model="editableProfile.numeroTelefono" label="Número de Teléfono" id="editNumeroTelefono"
+              type="tel" required />
 
             <div class="flex justify-end space-x-3 pt-4">
-              <button type="button" @click="cancelEdit" :disabled="authStore.isLoading"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-500">
-                Cancelar
-              </button>
-              <button type="submit" :disabled="authStore.isLoading"
-                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-                {{ authStore.isLoading ? 'Guardando...' : 'Guardar Cambios' }}
-              </button>
+              <BaseButton type="button" @click="cancelEdit" :disabled="authStore.isLoading">Cancelar</BaseButton>
+              <BaseButton type="submit" :disabled="authStore.isLoading">{{ authStore.isLoading ? 'Guardando...' :
+                'Guardar Cambios' }}
+              </BaseButton>
             </div>
 
             <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
