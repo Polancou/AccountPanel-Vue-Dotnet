@@ -2,10 +2,11 @@
 // Importamos RouterView para mostrar el contenido de la ruta actual
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import BaseButton from '@/components/common/BaseButton.vue';
 
 const authStore = useAuthStore();
 // Función para cerrar sesión
-const closeSession = () => {
+const handleLogout = () => {
   authStore.logout()
 }
 </script>
@@ -23,10 +24,9 @@ const closeSession = () => {
         </RouterLink>
       </nav>
       <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button @click="closeSession"
-          class="w-full cursor-pointer py-2 px-4 text-left text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900 rounded">
+        <BaseButton variant="danger-text" @click="handleLogout" class="w-full">
           Cerrar Sesión
-        </button>
+        </BaseButton>
       </div>
     </aside>
 

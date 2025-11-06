@@ -144,10 +144,14 @@ const cancelEdit = () => {
               type="tel" required />
 
             <div class="flex justify-end space-x-3 pt-4">
-              <BaseButton type="button" @click="cancelEdit" :disabled="authStore.isLoading">Cancelar</BaseButton>
-              <BaseButton type="submit" :disabled="authStore.isLoading">{{ authStore.isLoading ? 'Guardando...' :
-                'Guardar Cambios' }}
+
+              <BaseButton type="button" @click="cancelEdit" :disabled="authStore.isLoading" variant="secondary">
+                Cancelar
               </BaseButton>
+              <BaseButton type="submit" :disabled="authStore.isLoading" variant="primary">
+                {{ authStore.isLoading ? 'Guardando...' : 'Guardar Cambios' }}
+              </BaseButton>
+
             </div>
 
             <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
