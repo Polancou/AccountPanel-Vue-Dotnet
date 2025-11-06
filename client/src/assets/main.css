@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@layer components {
+    .input-field {
+        @apply block w-full px-3 py-2 mt-1 rounded-md shadow-sm sm:text-sm text-gray-900 bg-gray-50 border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500 dark:focus:border-blue-500;
+    }
+
+    .input-field:focus {
+        @apply outline-none ring-indigo-500 border-indigo-500;
+    }
+}
