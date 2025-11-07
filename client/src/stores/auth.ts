@@ -5,7 +5,7 @@ import { defineStore } from 'pinia' // La función principal para definir un sto
 import axios from 'axios' // Para hacer las peticiones HTTP
 import { useRouter } from 'vue-router' // Para redirigir al usuario (ej. después del login)
 // Importaciones para DTO
-import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto } from "@/types/dto.ts"
+import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto } from "@/types/dto.ts"
 // Importación de Toast de Vue Sonner
 import { toast } from 'vue-sonner'
 
@@ -214,11 +214,37 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function changePassword(passwordData: CambiarPasswordDto): Promise<boolean> {
+    if (!token.value) {
+      toast.error("No estás autenticado.");
+      return false;
+    }
+
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await axios.put('/api/v1/profile/change-password', passwordData, {
+        headers: { 'Authorization': `Bearer ${token.value}` }
+      });
+
+      toast.success(response.data.message || 'Contraseña actualizada con éxito');
+      return true;
+
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Error al cambiar la contraseña.';
+      toast.error(message);
+      error.value = message;
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     // Exporta las props
     token, isLoading, error, isAuthenticated, userProfile,
     // Exporta los actions
-    login, logout, register, fetchProfile, updateProfile
+    login, logout, register, fetchProfile, updateProfile, changePassword
   }
 },
   {

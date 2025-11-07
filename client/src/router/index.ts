@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 const LoginView = () => import('@/views/LoginView.vue')
 const RegisterView = () => import('@/views/RegisterView.vue')
 const ProfileView = () => import('@/views/ProfileView.vue')
+const SecurityView = () => import('@/views/SecurityView.vue');
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -39,6 +40,11 @@ const router = createRouter({
           path: 'profile', // Se convierte en /profile
           name: 'profile',
           component: ProfileView
+        },
+        {
+          path: 'security',
+          name: 'security',
+          component: SecurityView
         }
       ]
     },

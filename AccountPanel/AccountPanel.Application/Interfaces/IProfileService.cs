@@ -1,4 +1,5 @@
 using AccountPanel.Application.DTOs;
+using AccountPanel.Domain.Models;
 
 namespace AccountPanel.Application.Interfaces;
 
@@ -21,4 +22,12 @@ public interface IProfileService
     /// <param name="perfilDto">Los nuevos datos para el perfil.</param>
     /// <returns>True si la actualización fue exitosa, false si el usuario no fue encontrado.</returns>
     Task<bool> ActualizarPerfilAsync(int userId, ActualizarPerfilDto perfilDto);
+
+    /// <summary>
+    /// Cambia la contraseña de un usuario.
+    /// </summary>
+    /// <param name="userId">El ID del usuario a cambiar la contraseña.</param>
+    /// <param name="cambioPasswordDto">Los datos para el cambio de contraseña.</param>
+    /// <returns>True si el cambio de contraseña fue exitoso, false si el usuario no fue encontrado.</returns>
+    Task<AuthResult> CambiarPasswordAsync(int userId, CambiarPasswordDto dto);
 }

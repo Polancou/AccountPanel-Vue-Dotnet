@@ -26,3 +26,9 @@ export interface ActualizarPerfilDto {
   nombreCompleto: string;
   numeroTelefono: string;
 }
+// DTO para el cambio de contraseña
+export interface CambiarPasswordDto {
+  oldPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}

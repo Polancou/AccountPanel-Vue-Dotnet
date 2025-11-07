@@ -1,5 +1,6 @@
 using AccountPanel.Application.DTOs;
 using AccountPanel.Application.Interfaces;
+using AccountPanel.Domain.Models;
 using AutoMapper;
 
 namespace AccountPanel.Application.Services;
@@ -35,7 +36,7 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper) : IPr
     public async Task<bool> ActualizarPerfilAsync(int userId, ActualizarPerfilDto perfilDto)
     {
         // Busca al usuario que se desea actualizar.
-        var usuario = await context.Usuarios.FindAsync(userId);
+        var usuario = await context.Usuarios.FindAsync(keyValues: userId);
 
         if (usuario == null)
         {
@@ -44,10 +45,46 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper) : IPr
         }
 
         // Delega la lógica de la actualización a un método en la propia entidad de dominio.
-        usuario.ActualizarPerfil(perfilDto.NombreCompleto, perfilDto.NumeroTelefono);
+        usuario.ActualizarPerfil(nuevoNombre: perfilDto.NombreCompleto, nuevoNumero: perfilDto.NumeroTelefono);
 
         // Persiste los cambios en la base de datos.
         await context.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Cambia la contraseña de un usuario.
+    /// </summary>
+    /// <param name="userId">El ID del usuario a cambiar la contraseña.</param>
+    /// <param name="cambioPasswordDto">Los datos para el cambio de contraseña.</param>
+    /// <returns>True si el cambio de contraseña fue exitoso, false si el usuario no fue encontrado.</returns>
+    public async Task<AuthResult> CambiarPasswordAsync(int userId, CambiarPasswordDto dto)
+    {
+        var usuario = await context.Usuarios.FindAsync(keyValues: userId);
+        if (usuario == null)
+        {
+            // Este caso no debería ocurrir si el usuario está autenticado
+            return AuthResult.Fail("Usuario no encontrado.");
+        }
+
+        // Verifica si el usuario tiene una contraseña local
+        if (string.IsNullOrEmpty(usuario.PasswordHash))
+        {
+            return AuthResult.Fail("No puedes cambiar la contraseña de una cuenta de inicio de sesión externo.");
+        }
+
+        // Verifica si la contraseña antigua es correcta
+        if (!BCrypt.Net.BCrypt.Verify(text: dto.OldPassword, hash: usuario.PasswordHash))
+        {
+            return AuthResult.Fail("La contraseña actual es incorrecta.");
+        }
+
+        // Hashea y guarda la nueva contraseña
+        var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(inputKey: dto.NewPassword);
+        usuario.EstablecerPasswordHash(passwordHash: newPasswordHash);
+
+        await context.SaveChangesAsync();
+
+        return AuthResult.Ok(token: null, message: "Contraseña actualizada exitosamente.");
     }
 }

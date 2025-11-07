@@ -2,7 +2,6 @@
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import type { RegistroUsuarioDto } from '@/types/dto'
 import { useRouter } from 'vue-router'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
