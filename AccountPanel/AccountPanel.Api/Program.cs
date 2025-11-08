@@ -19,6 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using AccountPanel.Domain.Models;
 
 // --- LIBRERÍAS DE TERCEROS ---
 
@@ -41,6 +42,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 // --- Configuración de Base de Datos y el Contrato IApplicationDbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -87,7 +89,7 @@ builder.Services.AddApiVersioning(options =>
     {
         options.ReportApiVersions = true;
         options.AssumeDefaultVersionWhenUnspecified = true;
-        options.DefaultApiVersion = new ApiVersion(1, 0);
+        options.DefaultApiVersion = new ApiVersion(majorVersion: 1, minorVersion: 0);
         options.ApiVersionReader = new UrlSegmentApiVersionReader();
     })
     .AddApiExplorer(options =>
@@ -106,6 +108,9 @@ builder.Services.AddFluentValidationRulesToSwagger();
 var app = builder.Build();
 
 // --- 5. CONFIGURACIÓN DEL PIPELINE DE PETICIONES HTTP ---
+
+// Se inicializa el seeding de usuario administrador.
+await SeedAdminUserAsync(services: app.Services);
 // El orden de los middlewares en esta sección es MUY importante.
 app.UseSerilogRequestLogging();
 app.UseGlobalExceptionHandler();
@@ -144,6 +149,39 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+async Task SeedAdminUserAsync(IServiceProvider services)
+{
+    // Se crea un scope para obtener las dependencias necesarias para el seeding.
+    using var scope = services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    // Verifica si ya existe un administrador en la base de datos.
+    var hasAdmin = await context.Usuarios.AnyAsync(u => u.Rol == RolUsuario.Admin);
+    // Si ya existe un administrador, no hace nada.
+    if (hasAdmin) return;
+    // Si no existe, se crea un administrador con los datos de secrets.
+    var adminEmail = config["AdminUser:Email"];
+    var adminPassword = config["AdminUser:Password"];
+    // Verifica que los datos de configuración sean válidos.
+    if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))
+    {
+        logger.LogError("No se ha encontrado la configuración de administrador en el archivo de configuración.");
+        return;
+    }
+    
+    // Crea un administrador con credenciales de ejemplo.
+    var admin = new Usuario(nombreCompleto: "Administrador del Sistema", email: adminEmail, numeroTelefono: "0000000000", rol: RolUsuario.Admin);
+    // Hashea la contraseña del administrador.
+    admin.EstablecerPasswordHash(passwordHash: BCrypt.Net.BCrypt.HashPassword(adminPassword));
+    // Añade el administrador al contexto de la base de datos.
+    await context.Usuarios.AddAsync(admin);
+    // Guarda los cambios en la base de datos.
+    await context.SaveChangesAsync();
+    // Registra un mensaje en el log indicando que se ha creado el administrador.
+    logger.LogInformation("Se ha creado un usuario administrador.");
 }
 
 // --- 7. VISIBILIDAD PARA PROYECTOS EXTERNOS ---

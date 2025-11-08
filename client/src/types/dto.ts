@@ -32,3 +32,13 @@ export interface CambiarPasswordDto {
   newPassword: string;
   confirmPassword: string;
 }
+// DTO para el token JWT
+export interface JwtPayload {
+  nameid: string;
+  email: string;
+  role: string;
+  nbf: number;
+  iat: number;
+  exp: number;
+  iss: string;
+}

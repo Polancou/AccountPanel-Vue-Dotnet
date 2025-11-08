@@ -5,9 +5,11 @@ import { defineStore } from 'pinia' // La función principal para definir un sto
 import axios from 'axios' // Para hacer las peticiones HTTP
 import { useRouter } from 'vue-router' // Para redirigir al usuario (ej. después del login)
 // Importaciones para DTO
-import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto } from "@/types/dto.ts"
+import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto, JwtPayload } from "@/types/dto.ts"
 // Importación de Toast de Vue Sonner
 import { toast } from 'vue-sonner'
+// Importación de jwtDecode para decodificar el token
+import { jwtDecode } from 'jwt-decode'
 
 /**
  * Store de autenticación usando Pinia.
@@ -25,6 +27,8 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null)
   // Estado para almacenar el perfil del usuario
   const userProfile = ref<PerfilUsuarioDto | null>(null)
+  // Estado para definir el rol del usuario
+  const userRole = ref<string | null>(null)
 
   // Obtenemos una instancia del router para usarla en las acciones.
   const router = useRouter()
@@ -33,6 +37,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Un getter computado que devuelve true si existe un token, false si no.
   const isAuthenticated = computed<boolean>(() => !!token.value)
+  // Un getter computado que determina si el usuario es un administrador
+  const isAdmin = computed<boolean>(() => userRole.value === 'Admin')
 
   // --- Actions ---
 
@@ -52,6 +58,8 @@ export const useAuthStore = defineStore('auth', () => {
       const newToken = response.data.token
       // Actualiza el estado reactivo del token
       token.value = newToken
+      // Actualiza el estado local con el rol
+      setAuthState(newToken)
       // Muestra un toast de vue sonner indicando que la sesión se inició correctamente
       toast.success('Sesión iniciada correctamente');
       // Redirige a la página de perfil
@@ -214,6 +222,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Función para cambiar la contraseña del usuario autenticado.
+   * @param passwordData - DTO con la nueva contraseña.
+   * @returns boolean - True si la operación fue exitosa, false si falló.
+   */
   async function changePassword(passwordData: CambiarPasswordDto): Promise<boolean> {
     if (!token.value) {
       toast.error("No estás autenticado.");
@@ -240,9 +253,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function setAuthState(newToken: string) {
+    token.value = newToken
+    try {
+      // Decodifica el token para extraer el rol
+      const decoded = jwtDecode<JwtPayload>(newToken)
+      // Actualiza el estado local con el rol
+      userRole.value = decoded.role
+    } catch (e) {
+      console.error("Error decodificando el token:", e)
+      userRole.value = null
+    }
+  }
+
   return {
     // Exporta las props
-    token, isLoading, error, isAuthenticated, userProfile,
+    token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin,
     // Exporta los actions
     login, logout, register, fetchProfile, updateProfile, changePassword
   }

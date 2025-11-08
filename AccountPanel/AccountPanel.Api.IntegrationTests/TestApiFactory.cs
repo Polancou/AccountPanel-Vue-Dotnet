@@ -84,6 +84,7 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
+            services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
 
@@ -145,12 +146,35 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var tokenService = scope.ServiceProvider.GetRequiredService<ITokenService>();
 
-        var user = new Usuario(name, email, "123456789", RolUsuario.User);
-        user.EstablecerPasswordHash(BCrypt.Net.BCrypt.HashPassword("password123"));
+        var user = new Usuario(nombreCompleto: name, email: email, numeroTelefono: "123456789", rol: RolUsuario.User);
+        user.EstablecerPasswordHash(passwordHash: BCrypt.Net.BCrypt.HashPassword("password123"));
         await context.Usuarios.AddAsync(user);
         await context.SaveChangesAsync();
 
         var token = tokenService.CrearToken(user);
+        return (user.Id, token);
+    }
+    
+    /// <summary>
+    /// Método de utilidad para "sembrar" la base de datos con un usuario, su rol y obtener su token.
+    /// Esto reduce la duplicación de código en los archivos de prueba.
+    /// </summary>
+    /// <param name="name">Nombre del usuario a crear.</param>
+    /// <param name="email">Email del usuario a crear.</param>
+    /// <param name="rol">Rol del usuario a crear.</param>
+    /// <returns>Una tupla con el ID del usuario creado y su token JWT.</returns>
+    public async Task<(int userId, string token)> CreateUserAndGetTokenAsync(string name, string email, RolUsuario rol)
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tokenService = scope.ServiceProvider.GetRequiredService<ITokenService>();
+
+        var user = new Usuario(nombreCompleto: name, email: email, numeroTelefono: "123456789", rol: rol);
+        user.EstablecerPasswordHash(passwordHash: BCrypt.Net.BCrypt.HashPassword("password123"));
+        await context.Usuarios.AddAsync(user);
+        await context.SaveChangesAsync();
+
+        var token = tokenService.CrearToken(usuario: user);
         return (user.Id, token);
     }
 }

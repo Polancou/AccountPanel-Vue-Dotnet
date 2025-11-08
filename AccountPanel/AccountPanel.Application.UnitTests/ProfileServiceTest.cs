@@ -235,7 +235,7 @@ public class ProfileServiceTests
         // --- Assert (Verificar) ---
         // 1. Verifica que la operación falló con el mensaje correcto
         result.Success.Should().BeFalse();
-        result.Message.Should().Be("La contraseña actual es incorrecta.");
+        result.Message.Should().Be(expected: "La contraseña actual es incorrecta.");
 
         // 2. Verifica que NO se llamó a SaveChanges
         _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
