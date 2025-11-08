@@ -1,11 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { useAuthStore } from '@/stores/auth'
+import { toast } from 'vue-sonner'
 
 const LoginView = () => import('@/views/LoginView.vue')
 const RegisterView = () => import('@/views/RegisterView.vue')
 const ProfileView = () => import('@/views/ProfileView.vue')
-const SecurityView = () => import('@/views/SecurityView.vue');
+const SecurityView = () => import('@/views/SecurityView.vue')
+const AdminView = () => import('@/views/AdminView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,12 +34,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         {
-          // La ruta por defecto dentro del layout, redirige a /profile
           path: '',
           redirect: '/profile'
         },
         {
-          path: 'profile', // Se convierte en /profile
+          path: 'profile',
           name: 'profile',
           component: ProfileView
         },
@@ -45,6 +46,12 @@ const router = createRouter({
           path: 'security',
           name: 'security',
           component: SecurityView
+        },
+        {
+          path: 'admin',
+          name: 'admin',
+          component: AdminView,
+          meta: { requiresAuth: true, requiresAdmin: true }
         }
       ]
     },
@@ -67,12 +74,18 @@ router.beforeEach((to, from, next) => {
     // 'next' es la función que permite o bloquea la navegación.
     next({ name: 'login' });
   }
-  // 2. ¿El usuario YA está autenticado E intenta acceder a login o register?
+  // 3. La ruta solicitada requiere el rol 'Admin' y el usuario no es administrador
+  else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    toast.error("No tienes permisos para acceder a esta página.");
+    // Redirige a la página de perfil (o dashboard).
+    next({ name: 'profile' });
+  }
+  // 3. ¿El usuario YA está autenticado E intenta acceder a login o register?
   else if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
     // Redirige a la página de perfil (o dashboard).
     next({ name: 'profile' });
   }
-  // 3. En cualquier otro caso (ruta pública o ruta protegida con usuario autenticado)
+  // 4. En cualquier otro caso (ruta pública o ruta protegida con usuario autenticado)
   else {
     // Permite la navegación.
     next();

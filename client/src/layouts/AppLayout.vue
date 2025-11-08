@@ -26,6 +26,10 @@ const handleLogout = () => {
           class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
           Security
         </RouterLink>
+        <RouterLink v-if="authStore.isAdmin" to="/admin"
+          class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
+          Admin Panel
+        </RouterLink>
       </nav>
       <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
         <BaseButton variant="danger-text" @click="handleLogout" class="w-full">

@@ -14,7 +14,7 @@ namespace AccountPanel.Api.Controllers;
 /// (`IProfileService`), y mapear el resultado a una respuesta HTTP.
 /// </summary>
 [ApiController]
-[Route("api/v{version:apiVersion}/profile")] // La ruta base representa el "recurso" de perfil.
+[Route("api/v{version:apiVersion}/[controller]")] // La ruta base representa el "recurso" de perfil.
 [ApiVersion("1.0")]
 [Authorize] // El atributo [Authorize] protege todos los endpoints, requiriendo un JWT válido.
 public class ProfileController(IProfileService profileService) : ControllerBase
