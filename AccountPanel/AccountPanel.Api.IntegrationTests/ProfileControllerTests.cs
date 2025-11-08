@@ -98,7 +98,7 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
     }
 
     #endregion
-    
+
     #region Pruebas de Actualización de Perfil (Update)
 
     /// <summary>
@@ -164,6 +164,103 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
         // --- Assert (Verificar) ---
         // Se verifica que la respuesta HTTP sea 401 Unauthorized.
         response.StatusCode.Should().Be(expected: HttpStatusCode.Unauthorized);
+    }
+
+    #endregion
+
+    #region Pruebas de Cambio de Contraseña
+
+    /// <summary>
+    /// Prueba el "camino feliz": un usuario autenticado con la contraseña antigua correcta
+    /// debería poder actualizar su contraseña y recibir un 200 OK.
+    /// </summary>
+    [Fact]
+    public async Task ChangePassword_WithValidData_ShouldReturnOk()
+    {
+        // --- Arrange (Preparar) ---
+        // El helper CreateUserAndGetTokenAsync usa "password123" como contraseña por defecto
+        var (userId, token) = await _factory.CreateUserAndGetTokenAsync(name: "User", email: "pass.test@email.com");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(scheme: "Bearer", parameter: token);
+
+        var dto = new CambiarPasswordDto
+        {
+            OldPassword = "password123", // Contraseña correcta del helper
+            NewPassword = "P@ssw0rdNueva456!",
+            ConfirmPassword = "P@ssw0rdNueva456!"
+        };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PutAsJsonAsync($"/api/{ApiVersion}/profile/change-password", dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica la respuesta HTTP
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        result.Should().NotBeNull();
+        result["message"].Should().Be("Contraseña actualizada exitosamente.");
+
+        // 2. Verifica que la contraseña realmente cambió en la base de datos
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var updatedUser = await context.Usuarios.FindAsync(userId);
+        BCrypt.Net.BCrypt.Verify(dto.NewPassword, updatedUser.PasswordHash).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Prueba que el endpoint devuelva 400 Bad Request si la contraseña antigua es incorrecta.
+    /// </summary>
+    [Fact]
+    public async Task ChangePassword_WithWrongOldPassword_ShouldReturnBadRequest()
+    {
+        // --- Arrange (Preparar) ---
+        var (userId, token) = await _factory.CreateUserAndGetTokenAsync(name: "User", email: "pass.wrong@email.com");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var dto = new CambiarPasswordDto
+        {
+            OldPassword = "ESTA-ES-INCORRECTA", // <-- Contraseña incorrecta
+            NewPassword = "PasswordNueva456!",
+            ConfirmPassword = "PasswordNueva456!"
+        };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PutAsJsonAsync($"/api/{ApiVersion}/profile/change-password", dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica la respuesta HTTP 400
+        var result = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        result.Should().NotBeNull();
+        result["message"].Should().Be("La contraseña actual es incorrecta.");
+    }
+
+    /// <summary>
+    /// Prueba que el endpoint devuelva 400 Bad Request si las nuevas contraseñas no coinciden,
+    /// verificando la validación del DTO (FluentValidation).
+    /// </summary>
+    [Fact]
+    public async Task ChangePassword_WithMismatchedNewPasswords_ShouldReturnBadRequest()
+    {
+        // --- Arrange (Preparar) ---
+        var (userId, token) = await _factory.CreateUserAndGetTokenAsync("User", "pass.mismatch@email.com");
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var dto = new CambiarPasswordDto
+        {
+            OldPassword = "password123",
+            NewPassword = "PasswordNueva456!",
+            ConfirmPassword = "NO-COINCIDE" // <-- Contraseñas no coinciden
+        };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PutAsJsonAsync($"/api/{ApiVersion}/profile/change-password", dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica la respuesta HTTP 400
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        // 2. Verifica el mensaje de error de validación
+        var errorString = await response.Content.ReadAsStringAsync();
+        errorString.Should().Contain("Las contraseñas nuevas no coinciden.");
     }
 
     #endregion

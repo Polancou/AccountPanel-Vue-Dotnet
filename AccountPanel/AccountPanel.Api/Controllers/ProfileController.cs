@@ -66,4 +66,25 @@ public class ProfileController(IProfileService profileService) : ControllerBase
         // actualización exitosa que no necesita devolver ningún dato.
         return NoContent(); 
     }
+
+    /// <summary>
+    /// Cambia la contraseña del usuario autenticado.
+    /// </summary>
+    /// <param name="dto">Objeto con la contraseña antigua y la nueva.</param>
+    /// <returns>Un 200 OK con mensaje de éxito o un 400 Bad Request con mensaje de error.</returns>
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] CambiarPasswordDto dto)
+    {
+        // Se delega completamente la lógica de cambio de contraseña al servicio de perfil
+        var result = await profileService.CambiarPasswordAsync(userId: UserId, dto: dto);
+
+        if (!result.Success)
+        {
+            // Si falla (ej. contraseña antigua incorrecta), devuelve 400
+            return BadRequest(new { message = result.Message });
+        }
+
+        // Devuelve 200 OK con el mensaje de éxito
+        return Ok(new { message = result.Message });
+    }
 }

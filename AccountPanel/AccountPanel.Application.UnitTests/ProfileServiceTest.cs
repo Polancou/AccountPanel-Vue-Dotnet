@@ -160,4 +160,86 @@ public class ProfileServiceTests
     }
 
     #endregion
+
+    #region Pruebas para CambiarPasswordAsync
+
+    /// <summary>
+    /// Prueba el "camino feliz": un usuario existente con la contraseña antigua correcta
+    /// debería poder actualizar su contraseña.
+    /// </summary>
+    [Fact]
+    public async Task CambiarPasswordAsync_WhenOldPasswordIsCorrect_ShouldUpdatePassword()
+    {
+        // --- Arrange (Preparar) ---
+        var userId = 1;
+        var oldPassword = "PasswordAntigua123!";
+        var newPassword = "PasswordNueva456!";
+        var user = new Usuario("Test User", "test@email.com", "123", RolUsuario.User);
+
+        // Establece el hash de la contraseña antigua en la entidad de usuario
+        user.EstablecerPasswordHash(BCrypt.Net.BCrypt.HashPassword(oldPassword));
+
+        var dto = new CambiarPasswordDto
+        {
+            OldPassword = oldPassword,
+            NewPassword = newPassword,
+            ConfirmPassword = newPassword
+        };
+
+        // Configura el mock para que devuelva el usuario
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userId)).ReturnsAsync(user);
+
+        // --- Act (Actuar) ---
+        var result = await _profileService.CambiarPasswordAsync(userId, dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica que la operación fue exitosa
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Contraseña actualizada exitosamente.");
+
+        // 2. Verifica que el hash de la contraseña en la entidad fue actualizado
+        user.PasswordHash.Should().NotBe(null);
+        BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash).Should().BeTrue();
+
+        // 3. Verifica que se llamó a SaveChanges
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// Prueba el caso de error: si el usuario proporciona una contraseña antigua incorrecta,
+    /// la operación debe fallar y no debe guardar cambios.
+    /// </summary>
+    [Fact]
+    public async Task CambiarPasswordAsync_WhenOldPasswordIsIncorrect_ShouldReturnFail()
+    {
+        // --- Arrange (Preparar) ---
+        var userId = 1;
+        var correctOldPassword = "PasswordAntigua123!";
+        var wrongOldPassword = "PasswordEquivocadaXXX";
+
+        var user = new Usuario("Test User", "test@email.com", "123", RolUsuario.User);
+        user.EstablecerPasswordHash(BCrypt.Net.BCrypt.HashPassword(correctOldPassword));
+
+        var dto = new CambiarPasswordDto
+        {
+            OldPassword = wrongOldPassword, // <- Contraseña incorrecta
+            NewPassword = "newPassword456!",
+            ConfirmPassword = "newPassword456!"
+        };
+
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userId)).ReturnsAsync(user);
+
+        // --- Act (Actuar) ---
+        var result = await _profileService.CambiarPasswordAsync(userId, dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica que la operación falló con el mensaje correcto
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("La contraseña actual es incorrecta.");
+
+        // 2. Verifica que NO se llamó a SaveChanges
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
 }
