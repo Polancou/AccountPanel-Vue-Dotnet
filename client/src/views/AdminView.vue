@@ -2,9 +2,10 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import axios from 'axios';
-import type { PerfilUsuarioDto } from '@/types/dto';
+import type { PagedResultDto, PerfilUsuarioDto } from '@/types/dto';
 import BaseTable from '@/components/common/BaseTable.vue'
 import type { TableColumn } from '@/components/common/BaseTable.vue'
+import BasePagination from '@/components/common/BasePagination.vue'
 
 // Obtenemos la instancia de la auth store.
 const authStore = useAuthStore()
@@ -14,6 +15,11 @@ const users = ref<PerfilUsuarioDto[]>([])
 const isLoading = ref<boolean>(false)
 const error = ref<string | null>(null)
 
+// Define las propiedades de la paginación
+const currentPage = ref(1)
+const totalPages = ref(0)
+const pageSize = 10
+
 // Define las columnas que quieres mostrar
 // Las 'key' deben coincidir con las propiedades de PerfilUsuarioDto
 const columns: TableColumn[] = [
@@ -22,31 +28,39 @@ const columns: TableColumn[] = [
   { key: 'rol', label: 'Rol' },
   { key: 'fechaRegistro', label: 'Miembro Desde' }
 ];
-
 /**
- * Inicializa la carga de los datos de los usuarios al renderizar la vista.
+ * Función para cargar los datos de los usuarios
  */
-onMounted(async () => {
-  // Reinicia el estado de carga
+const loadUsers = async () => {
   isLoading.value = true
+  error.value = null
   try {
-    // Llama al endpoint de la API para obtener los datos de los usuarios
-    const response = await axios.get<PerfilUsuarioDto[]>('/api/v1/admin/users', {
-      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    // Llama al endpoint paginado
+    const response = await axios.get<PagedResultDto<PerfilUsuarioDto>>('/api/v1/admin/users', {
+      headers: { 'Authorization': `Bearer ${authStore.token}` },
+      params: { 
+        pageNumber: currentPage.value,
+        pageSize: pageSize
+      }
     })
-    // Actualiza el estado local con los datos
-    users.value = response.data
-  } catch (error: any) {
-    // Actualiza el mensaje de error
-    authStore.error = error.response?.data?.message || 'Error al cargar los datos.'
-    // Si no está autorizado, cierra sesión localmente
-    if (error.response?.status === 401) authStore.logout()
+    // Actualiza el estado con los datos de la respuesta
+    users.value = response.data.items
+    totalPages.value = response.data.totalPages
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'No se pudieron cargar los usuarios.'
   } finally {
-    // Finaliza el loop de carga
     isLoading.value = false
   }
-})
+}
 
+// Llama al método para cargar los datos de los usuarios al renderizar la vista.
+onMounted(loadUsers)
+
+// --- 5. Crea el manejador para el evento 'page-changed' ---
+const handlePageChange = (newPage: number) => {
+  currentPage.value = newPage
+  loadUsers() 
+}
 // Helper para formatear la fecha
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
@@ -81,6 +95,8 @@ const formatDate = (dateString: string) => {
       </template>
 
     </BaseTable>
+    <BasePagination v-if="!isLoading && totalPages > 1" :currentPage="currentPage" :totalPages="totalPages"
+      @page-changed="handlePageChange" />
   </div>
 </template>
 

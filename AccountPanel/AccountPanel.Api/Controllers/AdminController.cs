@@ -15,15 +15,17 @@ namespace AccountPanel.Api.Controllers;
 public class AdminController(IAdminService adminService) : ControllerBase
 {
     /// <summary>
-    /// Obtiene todos los perfiles de usuarios en el sistema.
+    /// Obtiene todos los perfiles de usuarios en el sistema en formato paginado.
     /// </summary>
-    /// <returns>Una lista de perfiles de usuarios</returns>
+    /// <param name="pageNumber">Número de página a mostrar</param>
+    /// <param name="pageSize">Tamaño de página a mostrar</param>
+    /// <returns></returns>
     [HttpGet("users")]
-    public async Task<IActionResult> GetAllUsers()
+    public async Task<IActionResult> GetPAginatedUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         // Obtenemos todos los usuarios en el sistema.
-        var users = await adminService.GetAllUsersAsync();
+        var result = await adminService.GetUsersPaginatedAsync(pageNumber: pageNumber, pageSize: pageSize);
         // Devolvemos la lista de usuarios como respuesta.
-        return Ok(users);
+        return Ok(result);
     }
 }

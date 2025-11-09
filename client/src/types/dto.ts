@@ -42,3 +42,13 @@ export interface JwtPayload {
   exp: number;
   iss: string;
 }
+// DTO para la paginación de resultados
+export interface PagedResultDto<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
