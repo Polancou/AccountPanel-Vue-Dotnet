@@ -7,6 +7,8 @@ public interface IAdminService
     /// <summary>
     /// Obtiene todos los perfiles de usuarios en el sistema
     /// </summary>
+    /// <param name="pageNumber">Número de página a mostrar</param>
+    /// <param name="pageSize">Tamaño de página a mostrar</param>
     /// <returns>Una lista de perfiles de usuarios</returns>
-    Task<IEnumerable<PerfilUsuarioDto>> GetAllUsersAsync();
+    Task<PagedResultDto<PerfilUsuarioDto>> GetUsersPaginatedAsync(int pageNumber, int pageSize);
 }

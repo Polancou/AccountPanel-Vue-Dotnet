@@ -11,6 +11,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AccountPanel.Api.IntegrationTests;
 
@@ -105,8 +106,44 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TestApiFactory>>();
         // Asegura que el esquema de la base de datos (las tablas) se cree en la base de datos en memoria.
         await context.Database.EnsureCreatedAsync();
+
+        try
+        {
+            var hasAdminUser = await context.Usuarios.AnyAsync(u => u.Rol == RolUsuario.Admin);
+
+            if (hasAdminUser) return; // El admin de prueba ya existe
+
+            // Usamos la 'Configuration' de esta TestApiFactory (que ya lee user-secrets)
+            var adminEmail = Configuration["AdminUser:Email"];
+            var adminPassword = Configuration["AdminUser:Password"];
+
+            if (string.IsNullOrEmpty(adminEmail) || string.IsNullOrEmpty(adminPassword))
+            {
+                logger.LogError("Secretos de AdminUser no encontrados. Asegúrate de que 'AccountPanel.Api.IntegrationTests' tenga acceso a los user-secrets.");
+                return;
+            }
+
+            var adminUser = new Usuario(
+                nombreCompleto: "Admin de Prueba",
+                email: adminEmail,
+                numeroTelefono: "0000000000",
+                rol: RolUsuario.Admin
+            );
+            adminUser.EstablecerPasswordHash(BCrypt.Net.BCrypt.HashPassword(adminPassword));
+
+            await context.Usuarios.AddAsync(adminUser);
+            await context.SaveChangesAsync();
+
+            logger.LogInformation("Usuario administrador de prueba creado.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Ocurrió un error durante el sembrado del administrador de prueba.");
+            throw;
+        }
     }
 
     /// <summary>

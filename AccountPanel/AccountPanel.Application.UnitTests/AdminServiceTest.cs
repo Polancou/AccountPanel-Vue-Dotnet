@@ -30,46 +30,51 @@ public class AdminServiceTests
     }
 
     /// <summary>
-    /// Prueba que el método GetAllUsersAsync devuelva correctamente
-    /// una lista mapeada de todos los usuarios.
+    /// Prueba que el método GetUsersPaginatedAsync devuelva correctamente
+    /// una lista mapeada y paginada de todos los usuarios.
     /// </summary>
     [Fact]
-    public async Task GetAllUsersAsync_ShouldReturnAllUsersAsDtos()
+    public async Task GetUsersPaginatedAsync_ShouldReturnCorrectPage()
     {
         // --- Arrange (Preparar) ---
-        // 1. Crea los datos falsos del dominio
-        var usuarios = new List<Usuario>
-        {
-            new Usuario(nombreCompleto: "Admin User", email: "admin@test.com", numeroTelefono: "111", rol: RolUsuario.Admin),
-            new Usuario(nombreCompleto: "Regular User", email: "user@test.com", numeroTelefono: "222", rol: RolUsuario.User)
-        };
+        var pageNumber = 1;
+        var pageSize = 10;
 
-        // 2. Crea los DTOs que esperamos que el Mapper devuelva
-        var perfilesDto = new List<PerfilUsuarioDto>
+        // 1. Crea tu lista completa de 150 usuarios falsos
+        var allUsers = new List<Usuario>();
+        for (int i = 0; i < 150; i++)
         {
-            new PerfilUsuarioDto { Id = 1, Email = "admin@test.com", Rol = "Admin" },
-            new PerfilUsuarioDto { Id = 2, Email = "user@test.com", Rol = "User" }
-        };
+            allUsers.Add(new Usuario($"User {i}", $"user{i}@test.com", "123", RolUsuario.User));
+        }
+
+        // 2. Crea la lista de 10 DTOs que esperas
+        var expectedDtos = new List<PerfilUsuarioDto>();
+        for (int i = 0; i < 10; i++)
+        {
+            expectedDtos.Add(new PerfilUsuarioDto { Email = $"user{i}@test.com" });
+        }
 
         // 3. Configura el mock del DbContext
-        _mockDbContext.Setup(c => c.Usuarios).ReturnsDbSet(usuarios);
+        // Moq.EntityFrameworkCore maneja 'Skip' y 'Take' por ti
+        _mockDbContext.Setup(c => c.Usuarios)
+            .ReturnsDbSet(allUsers);
 
         // 4. Configura el mock del Mapper
-        _mockMapper.Setup(m => m.Map<IEnumerable<PerfilUsuarioDto>>(It.IsAny<List<Usuario>>()))
-            .Returns(perfilesDto);
+        // Espera recibir una lista de 10 usuarios
+        _mockMapper.Setup(m => m.Map<List<PerfilUsuarioDto>>(It.Is<List<Usuario>>(list => list.Count == 10)))
+            .Returns(expectedDtos);
 
         // --- Act (Actuar) ---
-        var result = await _adminService.GetAllUsersAsync();
+        var result = await _adminService.GetUsersPaginatedAsync(pageNumber: pageNumber, pageSize: pageSize);
 
         // --- Assert (Verificar) ---
-        // 1. Verifica que el resultado no sea nulo y tenga 2 elementos
         result.Should().NotBeNull();
-        result.Should().HaveCount(expected: 2);
+        result.Items.Should().HaveCount(expected: 10); // Verifica que los items mapeados sean 10
+        result.TotalCount.Should().Be(expected: 150);  // Verifica el conteo total
+        result.PageNumber.Should().Be(expected: 1);
+        result.PageSize.Should().Be(expected: 10);
 
-        // 2. Verifica que la propiedad Usuarios del DbContext fue accedida
-        _mockDbContext.Verify(c => c.Usuarios, Times.Once);
-
-        // 3. Verifica que el Mapper fue llamado
-        _mockMapper.Verify(m => m.Map<IEnumerable<PerfilUsuarioDto>>(usuarios), Times.Once);
+        // Verifica que el mapper fue llamado con una lista de 10
+        _mockMapper.Verify(m => m.Map<List<PerfilUsuarioDto>>(It.Is<List<Usuario>>(list => list.Count == 10)), Times.Once);
     }
 }
