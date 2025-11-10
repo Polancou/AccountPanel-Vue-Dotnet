@@ -1,4 +1,5 @@
 using AccountPanel.Application.DTOs;
+using AccountPanel.Application.Exceptions;
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -52,7 +53,7 @@ public class AuthService(
     /// </summary>
     /// <param name="loginDto">DTO con las credenciales de inicio de sesión.</param>
     /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
-    public async Task<AuthResult> LoginAsync(LoginUsuarioDto loginDto)
+    public async Task<TokenResponseDto> LoginAsync(LoginUsuarioDto loginDto)
     {
         // Busca al usuario por su email a través del contrato del contexto.
         var usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
@@ -61,12 +62,20 @@ public class AuthService(
         if (usuario == null || usuario.PasswordHash == null ||
             !BCrypt.Net.BCrypt.Verify(loginDto.Password, usuario.PasswordHash))
         {
-            return AuthResult.Fail("Credenciales inválidas.");
+            throw new ValidationException("Credenciales inválidas.");
         }
+        // Genera los tokens de acceso y refresco
+        var accessToken = tokenService.CrearToken(usuario);
+        var refreshToken = tokenService.GenerarRefreshToken();
+        // Guardamos el nuevo refresh token en el usuario (expira en 30 días)
+        usuario.SetRefreshToken(refreshToken, DateTime.UtcNow.AddDays(30));
+        await context.SaveChangesAsync();
 
-        // Delega la creación del token al servicio correspondiente a través de la interfaz ITokenService.
-        var token = tokenService.CrearToken(usuario);
-        return AuthResult.Ok(token);
+        return new TokenResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
+        };
     }
 
     /// <summary>
@@ -74,49 +83,91 @@ public class AuthService(
     /// </summary>
     /// <param name="externalLoginDto">DTO con el nombre del proveedor y el token de ID.</param>
     /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
-    public async Task<AuthResult> ExternalLoginAsync(ExternalLoginDto externalLoginDto)
+    public async Task<TokenResponseDto> ExternalLoginAsync(ExternalLoginDto externalLoginDto)
     {
+        // Validar que el proveedor es Google
         if (externalLoginDto.Provider.ToLower() != "google")
         {
-            return AuthResult.Fail("Proveedor no soportado.");
+            throw new ValidationException("Proveedor no soportado.");
         }
-
-        // 1. Delega la validación técnica del token a un servicio de infraestructura a través de la interfaz.
-        // La capa de aplicación no sabe que se está comunicando con Google; solo sabe que valida un token.
+        // Validar que el token de ID sea válido
         var userInfo = await externalAuthValidator.ValidateTokenAsync(externalLoginDto.IdToken);
+        
         if (userInfo == null)
         {
-            return AuthResult.Fail("Token externo inválido.");
+            throw new ValidationException("Token externo inválido.");
         }
-
-        // 2. Comienza la lógica de negocio: buscar si el login externo ya existe.
+        // Comienza la lógica de negocio: buscar si el login externo ya existe
         var userLogin = await context.UserLogins.Include(ul => ul.Usuario)
             .FirstOrDefaultAsync(ul => ul.LoginProvider == "Google" && ul.ProviderKey == userInfo.ProviderSubjectId);
-
-        // Si el usuario ya se ha logueado antes con este proveedor, simplemente genera un nuevo token.
+        // Declaramos el usuario
+        Usuario usuario;
+        // Si el usuario ya se ha logueado antes con este proveedor, obtenemos su usuario
         if (userLogin != null)
         {
-            var existingToken = tokenService.CrearToken(userLogin.Usuario);
-            return AuthResult.Ok(existingToken);
+            usuario = userLogin.Usuario; 
         }
-
-        // 3. Si es un nuevo login, buscar si ya existe un usuario local con ese email.
-        var usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == userInfo.Email.ToLower());
-        if (usuario == null)
+        else
         {
-            // Si el usuario es completamente nuevo en el sistema, se crea un registro para él.
-            usuario = new Usuario(userInfo.Name, userInfo.Email, "", RolUsuario.User);
-            await context.Usuarios.AddAsync(usuario);
+            // Nuevo login, buscar por email o crear nuevo usuario
+            usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == userInfo.Email.ToLower());
+            // Si el usuario ya se ha logueado antes con este proveedor, simplemente genera un nuevo token.
+            if (usuario == null)
+            {
+                usuario = new Usuario(userInfo.Name, userInfo.Email, "", RolUsuario.User);
+                await context.Usuarios.AddAsync(usuario);
+                await context.SaveChangesAsync();
+            }
+            // Se crea el registro del login externo y se asocia con la cuenta de usuario (nueva o existente).
+            var nuevoLogin = new UserLogin("Google", userInfo.ProviderSubjectId, usuario);
+            await context.UserLogins.AddAsync(nuevoLogin);
             await context.SaveChangesAsync();
         }
 
-        // 4. Se crea el registro del login externo y se asocia con la cuenta de usuario (nueva o existente).
-        var nuevoLogin = new UserLogin("Google", userInfo.ProviderSubjectId, usuario);
-        await context.UserLogins.AddAsync(nuevoLogin);
+        // Genera los tokens de acceso y refresco
+        var accessToken = tokenService.CrearToken(usuario);
+        var refreshToken = tokenService.GenerarRefreshToken();
+        // Guardamos el nuevo refresh token en el usuario (expira en 30 días)
+        usuario.SetRefreshToken(refreshToken, DateTime.UtcNow.AddDays(30));
         await context.SaveChangesAsync();
+        // Devuelve los tokens
+        return new TokenResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
+        };
+    }
 
-        // 5. Se genera y devuelve el token JWT para la sesión del usuario.
-        var newToken = tokenService.CrearToken(usuario);
-        return AuthResult.Ok(newToken);
+    /// <summary>
+    /// Refresca un access token usando un refresh token válido.
+    /// <param name="refreshToken">El token de refresco.</param>
+    /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
+    /// </summary>
+    public async Task<TokenResponseDto> RefreshTokenAsync(string refreshToken)
+    {
+        // Buscamos al usuario que tenga este refresh token
+        var usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+        // Validamos que exista el usuario y que el refresh token no haya expirado
+        if (usuario == null)
+        {
+            throw new ValidationException("Refresh token inválido.");
+        }
+        // Validamos que el refresh token no haya expirado
+        if (usuario.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        {
+            throw new ValidationException("Refresh token expirado.");
+        }
+        // Generamos nuevos tokens
+        var newAccessToken = tokenService.CrearToken(usuario);
+        var newRefreshToken = tokenService.GenerarRefreshToken();
+        // Actualizamos el usuario con el nuevo refresh token (Rotación de tokens)
+        usuario.SetRefreshToken(newRefreshToken, DateTime.UtcNow.AddDays(30));
+        await context.SaveChangesAsync();
+        // Devolvemos los nuevos tokens
+        return new TokenResponseDto
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken
+        };
     }
 }

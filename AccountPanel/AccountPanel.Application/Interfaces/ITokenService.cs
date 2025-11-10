@@ -13,4 +13,9 @@ public interface ITokenService
     /// <param name="usuario">La entidad del usuario para quien se generará el token.</param>
     /// <returns>Una cadena que representa el token JWT firmado.</returns>
     string CrearToken(Usuario usuario);
+    /// <summary>
+    /// Genera un token de actualización (Refresh Token) aleatorio y seguro.
+    /// </summary>
+    /// <returns>Un string aleatorio para el refresh token.</returns>
+    string GenerarRefreshToken();
 }

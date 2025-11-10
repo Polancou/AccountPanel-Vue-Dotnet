@@ -1,3 +1,4 @@
+using AccountPanel.Api.Middleware;
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Application.Services;
 using AccountPanel.Domain.Models;

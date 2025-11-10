@@ -46,12 +46,10 @@ public class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginUsuarioDto loginDto)
     {
-        // Se delega la lógica de login al servicio de autenticación.
-        var result = await authService.LoginAsync(loginDto);
-        // Si el servicio indica que la autenticación falló, se deniega el acceso.
-        if (!result.Success) return Unauthorized(new { message = result.Message });
-        // Si la autenticación fue exitosa, se devuelve el token JWT generado.
-        return Ok(new { token = result.Token });
+        // Se delega la lógica de login al servicio de autenticación
+        var tokenResponse = await authService.LoginAsync(loginDto);
+        // Devuelve el token de acceso y el refresh token
+        return Ok(tokenResponse);
     }
 
     /// <summary>
@@ -66,10 +64,24 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginDto externalLoginDto)
     {
         // Se delega la lógica de login externo al servicio de autenticación.
-        var result = await authService.ExternalLoginAsync(externalLoginDto);
-        // Si el servicio indica que la autenticación falló, se deniega el acceso.
-        if (!result.Success) return Unauthorized(new { message = result.Message });
-        // Si la autenticación fue exitosa, se devuelve el token JWT generado para la sesión del usuario.
-        return Ok(new { token = result.Token });
+        var tokenResponse = await authService.ExternalLoginAsync(externalLoginDto);
+        // Devuelve el token de acceso y el refresh token
+        return Ok(tokenResponse);
+    }
+
+    /// <summary>
+    /// Endpoint para refrescar un token de acceso usando un refresh token.
+    /// <param name="refreshTokenRequest">El token de refresco.</param>
+    /// <returns>
+    /// Un resultado 200 OK con el token de acceso y el refresh token.
+    /// Un resultado 400 Bad Request si el token de refresco no es válido.
+    /// </summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto refreshTokenRequest)
+    {
+        // Se delega la lógica de refresco al servicio de autenticación
+        var tokenResponse = await authService.RefreshTokenAsync(refreshTokenRequest.RefreshToken);
+        // Devuelve el token de acceso y el refresh token
+        return Ok(tokenResponse);
     }
 }

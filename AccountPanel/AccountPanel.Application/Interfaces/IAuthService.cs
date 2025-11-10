@@ -21,12 +21,19 @@ public interface IAuthService
     /// </summary>
     /// <param name="loginDto">DTO con las credenciales de inicio de sesión.</param>
     /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
-    Task<AuthResult> LoginAsync(LoginUsuarioDto loginDto);
+    Task<TokenResponseDto> LoginAsync(LoginUsuarioDto loginDto);
 
     /// <summary>
     /// Autentica a un usuario utilizando un token de un proveedor externo (ej. Google).
     /// </summary>
     /// <param name="externalLoginDto">DTO con el nombre del proveedor y el token de ID.</param>
     /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
-    Task<AuthResult> ExternalLoginAsync(ExternalLoginDto externalLoginDto);
+    Task<TokenResponseDto> ExternalLoginAsync(ExternalLoginDto externalLoginDto);
+
+    /// <summary>
+    /// Refresca un access token usando un refresh token válido.
+    /// <param name="refreshToken">El token de refresco.</param>
+    /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
+    /// </summary>
+    Task<TokenResponseDto> RefreshTokenAsync(string refreshToken);
 }

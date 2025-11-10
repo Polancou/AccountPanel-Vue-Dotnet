@@ -38,38 +38,48 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
     /// </summary>
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        // --- AÑADIR LÓGICA DE DESENCRIPTADO ---
+        // Si la excepción es una AggregateException (común en tareas async),
+        // usamos la primera excepción interna que es la que nos interesa.
+        var exceptionToHandle = exception;
+        if (exception is AggregateException aggregateException && aggregateException.InnerExceptions.Any())
+        {
+            exceptionToHandle = aggregateException.InnerExceptions.First();
+        }
+        // --- FIN DE LÓGICA DE DESENCRIPTADO ---
+
         HttpStatusCode statusCode;
         string message;
 
-        switch (exception)
+        // Ahora, usamos 'exceptionToHandle' en el switch
+        switch (exceptionToHandle)
         {
             case NotFoundException:
                 statusCode = HttpStatusCode.NotFound;
-                message = exception.Message;
+                message = exceptionToHandle.Message;
                 break;
             case ValidationException:
                 statusCode = HttpStatusCode.BadRequest;
-                message = exception.Message;
+                message = exceptionToHandle.Message;
                 break;
             default:
                 statusCode = HttpStatusCode.InternalServerError;
                 message = "Ocurrió un error interno en el servidor. Por favor, intente de nuevo más tarde.";
                 break;
         }
-        // Se establece el código de estado de la respuesta a 500 Internal Server Error.
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-        context.Response.ContentType = "application/json";
 
-        // Se crea un objeto anónimo con un mensaje de error genérico y seguro para el cliente.
-        // Nunca se debe exponer el mensaje real de la excepción en producción.
+        context.Response.StatusCode = (int)statusCode; // Asigna el código correcto
+
         var response = new
         {
             StatusCode = context.Response.StatusCode,
-            Message = "Ocurrió un error interno en el servidor. Por favor, intente de nuevo más tarde.",
+            Message = message, // Usa el mensaje determinado
             TraceId = Activity.Current?.Id ?? context.TraceIdentifier
         };
 
-        // Se serializa el objeto a JSON y se escribe en el cuerpo de la respuesta.
         var jsonResponse = JsonSerializer.Serialize(response);
         return context.Response.WriteAsync(jsonResponse);
     }

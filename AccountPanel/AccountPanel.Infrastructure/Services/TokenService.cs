@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Domain.Models;
@@ -31,10 +32,10 @@ public class TokenService(IConfiguration config) : ITokenService
         // Creamos el descriptor del token, que une toda la información.
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(claims), // Los claims que definimos arriba.
-            Expires = DateTime.Now.AddDays(7), // El token expirará en 7 días.
-            SigningCredentials = creds, // Nuestras credenciales de firma.
-            Issuer = config["Jwt:Issuer"] // Quién emite el token.
+            Subject = new ClaimsIdentity(claims),
+            Expires = DateTime.UtcNow.AddMinutes(15),
+            SigningCredentials = creds,
+            Issuer = config["Jwt:Issuer"]
         };
 
         // Usamos un manejador para crear el token basado en el descriptor.
@@ -43,5 +44,18 @@ public class TokenService(IConfiguration config) : ITokenService
 
         // Finalmente, escribimos el token como un string. Este es el string que enviaremos al cliente.
         return tokenHandler.WriteToken(token);
+    }
+
+    /// <summary>
+    /// Genera un token de actualización (Refresh Token) aleatorio y seguro.
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public string GenerarRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }
