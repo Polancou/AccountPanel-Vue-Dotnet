@@ -1,9 +1,9 @@
 // Importaciones de Vue y Pinia
-import { computed, ref } from 'vue' // 'ref' para estado reactivo, 'computed' para getters
-import { defineStore } from 'pinia' // La función principal para definir un store
+import { computed, ref } from 'vue'
+import { defineStore } from 'pinia'
 // Importaciones para llamadas a API y enrutamiento
-import axios from 'axios' // Para hacer las peticiones HTTP
-import { useRouter } from 'vue-router' // Para redirigir al usuario (ej. después del login)
+import apiClient from '@/services/api'; 
+import { useRouter } from 'vue-router' 
 // Importaciones para DTO
 import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto, JwtPayload } from "@/types/dto.ts"
 // Importación de Toast de Vue Sonner
@@ -53,7 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       // Llamada a la API (POST a /api/v1/auth/login)
-      const response = await axios.post<{ token: string }>('/api/v1/auth/login', credentials)
+      const response = await apiClient.post<{ token: string }>('/v1/auth/login', credentials)
       // Si la respuesta es exitosa
       const newToken = response.data.token
       // Actualiza el estado reactivo del token
@@ -89,7 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       // Llamada a la API (/api/v1/auth/register)
-      await axios.post('/api/v1/auth/register', userData)
+      await apiClient.post('/v1/auth/register', userData)
       // Muestra un toast de vue sonner indicando que el registro fue exitoso
       toast.success('Registro exitoso', {
         description: '¡Ahora puedes iniciar sesión!'
@@ -146,18 +146,12 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       // Llamada a la API para obtener el perfil del usuario
-      const response = await axios.get<PerfilUsuarioDto>('/api/v1/profile/me', {
-        headers: {
-          Authorization: `Bearer ${token.value}` // Incluye el token en los headers
-        }
-      })
+      const response = await apiClient.get<PerfilUsuarioDto>('/v1/profile/me')
       // Actualiza el estado reactivo del perfil del usuario
       userProfile.value = response.data
     } catch (error: any) {
       // Actualiza el mensaje de error para el usuario
       error.value = error.response?.data?.message || 'Error al cargar el perfil.'
-      // Si no está autorizado, cierra sesión localmente
-      if (error.response?.status === 401) logoutLocally()
     } finally {
       // Finaliza el loop de carga
       isLoading.value = false
@@ -180,13 +174,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null; // Limpia errores previos
     try {
       // Realiza la petición PUT al endpoint /api/v1/profile/me
-      // Incluye el token en la cabecera Authorization
-      await axios.put('/api/v1/profile/me', profileData, {
-        headers: {
-          'Authorization': `Bearer ${token.value}`
-        }
-      });
-
+      await apiClient.put('/v1/profile/me', profileData);
       // Si la petición PUT fue exitosa:
       // Actualiza el estado local del perfil con los nuevos datos.
       if (userProfile.value) {
@@ -213,9 +201,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       error.value = message;
       // Si el error es 401 (token inválido), cierra sesión localmente
-      if (err.response?.status === 401) {
-        logoutLocally();
-      }
+  
       return false; // Indica fallo
     } finally {
       isLoading.value = false
@@ -236,9 +222,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await axios.put('/api/v1/profile/change-password', passwordData, {
-        headers: { 'Authorization': `Bearer ${token.value}` }
-      });
+      const response = await apiClient.put('/v1/profile/change-password', passwordData);
 
       toast.success(response.data.message || 'Contraseña actualizada con éxito');
       return true;
@@ -273,13 +257,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       // 2. Envía la petición POST como 'multipart/form-data'
-      const response = await axios.post<{ avatarUrl: string }>('/api/v1/profile/avatar', formData, {
+      const response = await apiClient.post<{ avatarUrl: string }>('/v1/profile/avatar', formData, {
         headers: {
-          'Authorization': `Bearer ${token.value}`,
           'Content-Type': 'multipart/form-data'
         }
       });
-
       // 3. Actualiza el estado local con la nueva URL
       if (userProfile.value) {
         userProfile.value.avatarUrl = response.data.avatarUrl;

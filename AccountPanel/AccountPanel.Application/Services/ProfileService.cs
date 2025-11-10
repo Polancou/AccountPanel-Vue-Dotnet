@@ -1,4 +1,5 @@
 using AccountPanel.Application.DTOs;
+using AccountPanel.Application.Exceptions;
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Domain.Models;
 using AutoMapper;
@@ -22,7 +23,8 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
     {
         // Busca al usuario en la base de datos a través del contexto.
         var usuario = await context.Usuarios.FindAsync(userId);
-        if (usuario == null) return null;
+        if (usuario == null)
+            throw new NotFoundException(message: "Usuario no encontrado.");
 
         // Convierte la entidad de dominio a un DTO seguro para la respuesta.
         return mapper.Map<PerfilUsuarioDto>(usuario);
@@ -41,10 +43,8 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
 
         if (usuario == null)
         {
-            // Si no se encuentra el usuario, la operación falla.
-            return false; 
+            throw new NotFoundException("Usuario no encontrado.");
         }
-
         // Delega la lógica de la actualización a un método en la propia entidad de dominio.
         usuario.ActualizarPerfil(nuevoNombre: perfilDto.NombreCompleto, nuevoNumero: perfilDto.NumeroTelefono);
 
@@ -64,20 +64,19 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
         var usuario = await context.Usuarios.FindAsync(keyValues: userId);
         if (usuario == null)
         {
-            // Este caso no debería ocurrir si el usuario está autenticado
             return AuthResult.Fail("Usuario no encontrado.");
         }
 
         // Verifica si el usuario tiene una contraseña local
         if (string.IsNullOrEmpty(usuario.PasswordHash))
         {
-            return AuthResult.Fail("No puedes cambiar la contraseña de una cuenta de inicio de sesión externo.");
+            throw new ValidationException("No puedes cambiar la contraseña de una cuenta de inicio de sesión externo.");
         }
 
         // Verifica si la contraseña antigua es correcta
         if (!BCrypt.Net.BCrypt.Verify(text: dto.OldPassword, hash: usuario.PasswordHash))
         {
-            return AuthResult.Fail("La contraseña actual es incorrecta.");
+            throw new ValidationException("La contraseña actual es incorrecta.");
         }
 
         // Hashea y guarda la nueva contraseña
@@ -103,7 +102,7 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
         // Si no se encuentra el usuario, la operación falla.
         if (usuario == null)
         {
-            throw new Exception("Usuario no encontrado."); 
+            throw new NotFoundException("Usuario no encontrado.");
         }
         // Genera un nombre de archivo único para evitar colisiones
         var fileExtension = Path.GetExtension(file.FileName);
