@@ -43,6 +43,7 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
 // --- Configuración de Base de Datos y el Contrato IApplicationDbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -128,6 +129,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

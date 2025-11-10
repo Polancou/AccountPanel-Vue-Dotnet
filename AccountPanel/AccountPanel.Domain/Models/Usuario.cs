@@ -33,14 +33,24 @@ public class Usuario
     /// inicios de sesión de terceros (ej. Google) que no usan contraseña en nuestro sistema.
     /// </summary>
     public string? PasswordHash { get; private set; }
-
+    /// <summary>
+    /// El número de teléfono del usuario.
+    /// </summary>
     [Required] [MaxLength(20)] 
     public string NumeroTelefono { get; private set; }
-
+    /// <summary>
+    /// El rol del usuario.
+    /// </summary>
     [Required] 
     public RolUsuario Rol { get; private set; }
-
+    /// <summary>
+    /// La fecha de registro del usuario.
+    /// </summary>
     public DateTime FechaRegistro { get; private set; }
+    /// <summary>
+    /// La URL de la imagen de perfil del usuario.
+    /// </summary>
+    public string? AvatarUrl { get; private set; }
 
     #endregion
 
@@ -109,6 +119,17 @@ public class Usuario
         if (!string.IsNullOrWhiteSpace(nuevoNumero))
         {
             NumeroTelefono = nuevoNumero;
+        }
+    }
+    
+    /// <summary>
+    /// Actualiza la URL de la imagen de perfil del usuario.
+    /// </summary>
+    public void SetAvatarUrl(string nuevoUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(nuevoUrl))
+        {
+            AvatarUrl = nuevoUrl;
         }
     }
 

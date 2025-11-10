@@ -5,6 +5,7 @@ using AccountPanel.Application.Services;
 using AccountPanel.Domain.Models;
 using FluentAssertions;
 using Moq;
+using Microsoft.AspNetCore.Http;
 
 namespace AccountPanel.Application.UnitTests;
 
@@ -19,6 +20,7 @@ public class ProfileServiceTests
     // Mocks para los contratos (interfaces) que ProfileService necesita.
     private readonly Mock<IApplicationDbContext> _mockDbContext;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IFileStorageService> _mockFileStorage;
 
     // La instancia real del servicio que vamos a probar.
     private readonly IProfileService _profileService;
@@ -28,11 +30,13 @@ public class ProfileServiceTests
         // --- Arrange Global (Preparación antes de cada prueba) ---
         _mockDbContext = new Mock<IApplicationDbContext>();
         _mockMapper = new Mock<IMapper>();
+        _mockFileStorage = new Mock<IFileStorageService>();
 
         // Se inyectan los mocks en la implementación concreta del servicio.
         _profileService = new ProfileService(
             context: _mockDbContext.Object,
-            mapper: _mockMapper.Object
+            mapper: _mockMapper.Object,
+            fileStorageService: _mockFileStorage.Object
         );
     }
 
@@ -239,6 +243,51 @@ public class ProfileServiceTests
 
         // 2. Verifica que NO se llamó a SaveChanges
         _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region Pruebas para UploadAvatarAsync
+
+    [Fact]
+    public async Task UploadAvatarAsync_WhenUserExists_ShouldSaveFileAndUpdateUser()
+    {
+        // --- Arrange (Preparar) ---
+        var userId = 1;
+        var fakeFileUrl = "/uploads/avatars/fake-guid.jpg";
+        var usuario = new Usuario(nombreCompleto: "Test User", email: "test@email.com", numeroTelefono: "123", rol: RolUsuario.User);
+
+        // Simula un IFormFile
+        var mockFileStream = new MemoryStream("fake-image-data"u8.ToArray());
+        var mockFile = new Mock<IFormFile>();
+        mockFile.Setup(f => f.FileName).Returns("test.jpg");
+        mockFile.Setup(f => f.Length).Returns(mockFileStream.Length);
+        mockFile.Setup(f => f.OpenReadStream()).Returns(mockFileStream);
+
+        // Configura el DbContext para encontrar al usuario
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userId)).ReturnsAsync(usuario);
+
+        // Configura el FileStorage para que devuelva la URL falsa
+        _mockFileStorage.Setup(s => s.SaveFileAsync(
+                It.IsAny<Stream>(),
+                It.IsAny<string>())) // Acepta cualquier stream y nombre de archivo
+            .ReturnsAsync(fakeFileUrl);
+
+        // --- Act (Actuar) ---
+        var resultUrl = await _profileService.UploadAvatarAsync(userId: userId, file: mockFile.Object);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica que la URL devuelta sea la esperada
+        resultUrl.Should().Be(fakeFileUrl);
+
+        // 2. Verifica que la entidad Usuario fue actualizada con la nueva URL
+        usuario.AvatarUrl.Should().Be(fakeFileUrl);
+
+        // 3. Verifica que el servicio de almacenamiento fue llamado
+        _mockFileStorage.Verify(s => s.SaveFileAsync(It.IsAny<Stream>(), It.IsAny<string>()), Times.Once);
+
+        // 4. Verifica que los cambios se guardaron en la BD
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

@@ -19,11 +19,16 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': { 
-        target: 'http://localhost:5272', 
+      '/api': {
+        target: 'http://localhost:5272',
         changeOrigin: true,
-        secure: false, 
+        secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api')
+      },
+      '/uploads': {
+        target: 'http://localhost:5272',
+        changeOrigin: true, 
+        secure: false
       }
     }
   }
