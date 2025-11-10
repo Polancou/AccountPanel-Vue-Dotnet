@@ -16,6 +16,7 @@ Este proyecto contiene tecnologías modernas y demandadas para el desarrollo web
 - **Entity Framework Core 9** con SQLite para persistencia de datos
 - **Autenticación JWT** para seguridad de endpoints
 - **Autorización Basada en Roles (RBAC)** con claims y el atributo `[Authorize(Roles = "Admin")]`
+- **Manejo de Subida de Archivos** con `IFormFile` para avatares de perfil.
 - **Data Seeding** para la creación automática del usuario administrador al inicio
 - **Pruebas Unitarias** (`xUnit`, `Moq`) para la lógica de negocio
 - **Pruebas de Integración** (`WebApplicationFactory`) para los endpoints de la API
@@ -37,6 +38,7 @@ Este proyecto contiene tecnologías modernas y demandadas para el desarrollo web
 - **Axios** para comunicación con la API
 - **Validación de Formularios** en tiempo real con `VeeValidate` y `Zod`
 - **Notificaciones (Toasts)** elegantes con `Vue-Sonner` para feedback de API.
+- **Subida de Archivos de Avatar** con `FormData` y vista previa de imagen.
 - **Componentes Reutilizables** (`BaseTable`, `BaseInput`, `BaseButton` con variantes).
 - **UI y Rutas Condicionales** basadas en el rol del usuario (Admin vs User).
 - **ESLint** y **Prettier** para la calidad y formato del código.
@@ -110,14 +112,24 @@ dotnet restore AccountPanel/AccountPanel.sln
 
 #### 🗃️ Crear la Base de Datos y el Admin
 
-1.  **Crear la Migración:** Ejecuta el siguiente comando desde la raíz del repositorio para crear tu migración inicial:
+1.  **Crear las Migraciones:** Ejecuta el siguiente comando desde la raíz del repositorio para crear todas las migraciones necesarias (incluyendo la del avatar):
+
     ```bash
     dotnet ef migrations add InitialCreate --project AccountPanel/AccountPanel.Infrastructure/AccountPanel.Infrastructure.csproj --startup-project AccountPanel/AccountPanel.Api/AccountPanel.Api.csproj
     ```
-2.  **Aplicar la Migración:** Esto creará el archivo `sampleDb.db`:
+
+    *Si ya existe `InitialCreate`, añade la siguiente:*
+
+    ```bash
+    dotnet ef migrations add AddAvatarUrlToUsuario --project AccountPanel/AccountPanel.Infrastructure/AccountPanel.Infrastructure.csproj --startup-project AccountPanel/AccountPanel.Api/AccountPanel.Api.csproj
+    ```
+
+2.  **Aplicar las Migraciones:** Esto creará el archivo `sampleDb.db`:
+
     ```bash
     dotnet ef database update --project AccountPanel/AccountPanel.Infrastructure/AccountPanel.Infrastructure.csproj --startup-project AccountPanel/AccountPanel.Api/AccountPanel.Api.csproj
     ```
+
 3.  **Sembrar el Admin:** La lógica en `Program.cs` creará automáticamente el usuario administrador (usando tus secretos) la **primera vez que ejecutes el backend**.
 
 -----
@@ -137,7 +149,7 @@ npm install
 ```
 
 **Configuración del Proxy:**
-El archivo `client/vite.config.ts` está configurado para usar un proxy que redirige las peticiones `/api` a `http://localhost:5272`. Asegúrate de que esto coincida con el perfil `http` en tu `launchSettings.json`.
+El archivo `client/vite.config.ts` está configurado para usar un proxy que redirige las peticiones `/api` y `/uploads` a `http://localhost:5272`. Asegúrate de que esto coincida con el perfil `http` en tu `launchSettings.json`.
 
 -----
 
@@ -151,7 +163,7 @@ Para trabajar en el proyecto, abre **dos terminales** simultáneamente en la ra�
 dotnet run --project AccountPanel/AccountPanel.Api/AccountPanel.Api.csproj
 ```
 
-*(La API estará disponible en `http://localhost:5272` y `https://localhost:7092`. La primera ejecución creará el usuario admin)*
+*(La API estará disponible en `http://localhost:5272` y `https://localhost:7092`. La primera ejecución aplicará migraciones y creará el usuario admin)*
 
 ### 🧩 Terminal 2: Ejecutar el Frontend
 

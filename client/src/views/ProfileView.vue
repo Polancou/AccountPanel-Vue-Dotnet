@@ -10,7 +10,8 @@ import { toTypedSchema } from '@vee-validate/zod';
 
 // Obtenemos la instancia de la auth store.
 const authStore = useAuthStore();
-
+// Define la ruta de la imagen de perfil
+const uploadsBaseUrl = import.meta.env.VITE_UPLOADS_BASE_URL;
 // Variable para controlar el modo de edición del perfil
 const isEditing = ref(false);
 
@@ -118,7 +119,7 @@ const cancelEdit = () => {
 
           <div class="relative w-32 h-32 mx-auto mb-4 group">
             <img
-              :src="authStore.userProfile.avatarUrl || 'https://www.phoenixptsp.com/wp-content/uploads/2019/01/generic-profile-icon-10.jpg.png'"
+              :src="authStore.userProfile.avatarUrl ? `${uploadsBaseUrl}${authStore.userProfile.avatarUrl}` : 'https://www.phoenixptsp.com/wp-content/uploads/2019/01/generic-profile-icon-10.jpg.png'"
               alt="Foto de perfil"
               class="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-md" />
             <div @click="triggerFileInput"

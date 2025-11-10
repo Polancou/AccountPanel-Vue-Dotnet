@@ -36,35 +36,21 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     {
         // Se delega completamente la lógica de negocio al servicio de perfil.
         var perfilDto = await profileService.GetProfileByIdAsync(UserId);
-
-        if (perfilDto == null)
-        {
-            return NotFound(new { message = "Usuario no encontrado." });
-        }
-        
         return Ok(perfilDto);
     }
-    
+
     /// <summary>
     /// Actualiza los datos del perfil del usuario actualmente autenticado.
     /// </summary>
     /// <param name="perfilDto">Un objeto JSON con los nuevos datos para el perfil.</param>
     /// <returns>Un 204 No Content si la actualización fue exitosa</returns>
     /// <returns>Un 404 Not Found si el usuario no existe.</returns>
-    [HttpPut("me")] 
+    [HttpPut("me")]
     public async Task<IActionResult> UpdateMyProfile([FromBody] ActualizarPerfilDto perfilDto)
     {
         // Se delega completamente la lógica de actualización al servicio de perfil.
-        var success = await profileService.ActualizarPerfilAsync(UserId, perfilDto);
-
-        if (!success)
-        {
-            return NotFound(new { message = "Usuario no encontrado." });
-        }
-
-        // 204 No Content es la respuesta HTTP estándar y correcta para una
-        // actualización exitosa que no necesita devolver ningún dato.
-        return NoContent(); 
+        await profileService.ActualizarPerfilAsync(UserId, perfilDto);
+        return NoContent();
     }
 
     /// <summary>
@@ -77,13 +63,6 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     {
         // Se delega completamente la lógica de cambio de contraseña al servicio de perfil
         var result = await profileService.CambiarPasswordAsync(userId: UserId, dto: dto);
-
-        if (!result.Success)
-        {
-            // Si falla (ej. contraseña antigua incorrecta), devuelve 400
-            return BadRequest(new { message = result.Message });
-        }
-
         // Devuelve 200 OK con el mensaje de éxito
         return Ok(new { message = result.Message });
     }
@@ -101,13 +80,19 @@ public class ProfileController(IProfileService profileService) : ControllerBase
         {
             return BadRequest(new { message = "No se ha proporcionado ningún archivo." });
         }
-        
+
         // Valida el tipo de archivo
         if (!file.ContentType.StartsWith("image/"))
         {
             return BadRequest(new { message = "El archivo debe ser de tipo imagen." });
         }
-        
+
+        // Valida el tamaño del archivo
+        if (file.Length > 1024 * 1024 * 2)
+        {
+            return BadRequest(new { message = "El archivo debe ser menor a 2 MB." });
+        }
+
         // Valida el formato del archivo
         var fileExtension = Path.GetExtension(file.FileName);
         if (!fileExtension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) &&
@@ -115,18 +100,11 @@ public class ProfileController(IProfileService profileService) : ControllerBase
             !fileExtension.Equals(".png", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(new { message = "El archivo debe ser de formato JPG, JPEG o PNG." });
-        }    
+        }
 
-        try
-        {   
-            // Se delega completamente la lógica de subida de avatar al servicio de perfil
-            var newAvatarUrl = await profileService.UploadAvatarAsync(UserId, file);
-            // Devuelve 200 OK con la nueva URL del avatar
-            return Ok(new { avatarUrl = newAvatarUrl });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        // Se delega completamente la lógica de subida de avatar al servicio de perfil
+        var newAvatarUrl = await profileService.UploadAvatarAsync(UserId, file);
+        // Devuelve 200 OK con la nueva URL del avatar
+        return Ok(new { avatarUrl = newAvatarUrl });
     }
 }

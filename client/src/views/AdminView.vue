@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import axios from 'axios';
+import apiClient from '@/services/api';
 import type { PagedResultDto, PerfilUsuarioDto } from '@/types/dto';
 import BaseTable from '@/components/common/BaseTable.vue'
 import type { TableColumn } from '@/components/common/BaseTable.vue'
@@ -36,9 +36,8 @@ const loadUsers = async () => {
   error.value = null
   try {
     // Llama al endpoint paginado
-    const response = await axios.get<PagedResultDto<PerfilUsuarioDto>>('/api/v1/admin/users', {
-      headers: { 'Authorization': `Bearer ${authStore.token}` },
-      params: { 
+    const response = await apiClient.get<PagedResultDto<PerfilUsuarioDto>>('/v1/admin/users', {
+      params: {
         pageNumber: currentPage.value,
         pageSize: pageSize
       }

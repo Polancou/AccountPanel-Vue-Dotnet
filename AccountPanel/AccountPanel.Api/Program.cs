@@ -59,6 +59,18 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(cfg => cfg.LicenseKey = builder.Configuration["AutoMapper:Key"],
     AppDomain.CurrentDomain.GetAssemblies());
 
+// --- Configuración de CORS ---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: "AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+        });
+});
+
 // --- Configuración de Validación con FluentValidation ---
 // Se leen los validadores desde el ensamblado de la capa de Application.
 builder.Services.AddValidatorsFromAssembly(typeof(IApplicationDbContext).Assembly);
@@ -129,6 +141,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseCors(policyName: "AllowAll");
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseAuthentication();

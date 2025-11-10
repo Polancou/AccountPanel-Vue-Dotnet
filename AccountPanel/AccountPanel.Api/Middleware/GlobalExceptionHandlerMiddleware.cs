@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
+using AccountPanel.Application.Exceptions;
 
 namespace AccountPanel.Api.Middleware;
 
@@ -37,6 +38,24 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
     /// </summary>
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        HttpStatusCode statusCode;
+        string message;
+
+        switch (exception)
+        {
+            case NotFoundException:
+                statusCode = HttpStatusCode.NotFound;
+                message = exception.Message;
+                break;
+            case ValidationException:
+                statusCode = HttpStatusCode.BadRequest;
+                message = exception.Message;
+                break;
+            default:
+                statusCode = HttpStatusCode.InternalServerError;
+                message = "Ocurrió un error interno en el servidor. Por favor, intente de nuevo más tarde.";
+                break;
+        }
         // Se establece el código de estado de la respuesta a 500 Internal Server Error.
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
         context.Response.ContentType = "application/json";
