@@ -253,6 +253,48 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Sube un nuevo avatar para el usuario.
+   * @param file El archivo que llega desde el input.
+   */
+  async function uploadAvatar(file: File) {
+    if (!token.value) {
+      toast.error("No estás autenticado.");
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = null;
+
+    // 1. Prepara el FormData
+    const formData = new FormData();
+    // El debe ser el mismo que el nombre del param en el backend
+    formData.append('file', file); 
+
+    try {
+      // 2. Envía la petición POST como 'multipart/form-data'
+      const response = await axios.post<{ avatarUrl: string }>('/api/v1/profile/avatar', formData, {
+        headers: {
+          'Authorization': `Bearer ${token.value}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      // 3. Actualiza el estado local con la nueva URL
+      if (userProfile.value) {
+        userProfile.value.avatarUrl = response.data.avatarUrl;
+      }
+      toast.success("Foto de perfil actualizada.");
+
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Error al subir la imagen.';
+      toast.error(message);
+      error.value = message;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   function setAuthState(newToken: string) {
     token.value = newToken
     try {
@@ -270,7 +312,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Exporta las props
     token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin,
     // Exporta los actions
-    login, logout, register, fetchProfile, updateProfile, changePassword
+    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar
   }
 },
   {

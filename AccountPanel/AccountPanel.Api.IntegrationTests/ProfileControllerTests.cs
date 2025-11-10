@@ -264,4 +264,68 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
     }
 
     #endregion
+
+    #region Pruebas de Subida de Avatar
+
+    /// <summary>
+    /// Prueba el "camino feliz": un usuario autenticado debería poder
+    /// subir un archivo de imagen y recibir la nueva URL.
+    /// </summary>
+    [Fact]
+    public async Task UploadAvatar_WithValidTokenAndFile_ShouldReturnOkAndNewUrl()
+    {
+        // --- Arrange (Preparar) ---
+        // 1. Crea un usuario y obtén su token
+        var (userId, token) = await _factory.CreateUserAndGetTokenAsync("Avatar User", "avatar@test.com", Domain.Models.RolUsuario.User);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // 2. Crea el contenido del formulario (multipart/form-data)
+        await using var stream = new MemoryStream("fake-image-bytes"u8.ToArray());
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(stream);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+
+        // El nombre "file" DEBE coincidir con el parámetro [FromForm] IFormFile file
+        content.Add(fileContent, "file", "test-avatar.jpg");
+
+        // --- Act (Actuar) ---
+        var response = await _client.PostAsync(requestUri: $"/api/{ApiVersion}/profile/avatar", content: content);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica la respuesta HTTP 200 OK
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 2. Verifica que la respuesta contenga la nueva URL
+        var result = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        result.Should().NotBeNull();
+        result["avatarUrl"].Should().NotBeNullOrEmpty();
+        result["avatarUrl"].Should().StartWith("/uploads/avatars/");
+        result["avatarUrl"].Should().EndWith(".jpg");
+
+        // 3. Verifica que la URL fue guardada en la base de datos
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var updatedUser = await context.Usuarios.FindAsync(userId);
+        updatedUser.AvatarUrl.Should().Be(result["avatarUrl"]);
+    }
+
+    /// <summary>
+    /// Prueba que un usuario no autenticado (sin token) reciba 401 Unauthorized.
+    /// </summary>
+    [Fact]
+    public async Task UploadAvatar_WithoutToken_ShouldReturnUnauthorized()
+    {
+        // --- Arrange (Preparar) ---
+        _client.DefaultRequestHeaders.Authorization = null;
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent("empty"), "file", "test.jpg");
+
+        // --- Act (Actuar) ---
+        var response = await _client.PostAsync($"/api/{ApiVersion}/profile/avatar", content);
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    #endregion
 }

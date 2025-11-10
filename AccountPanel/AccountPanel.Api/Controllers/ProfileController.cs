@@ -87,4 +87,46 @@ public class ProfileController(IProfileService profileService) : ControllerBase
         // Devuelve 200 OK con el mensaje de éxito
         return Ok(new { message = result.Message });
     }
+
+    /// <summary>
+    /// Sube o actualiza la imagen de avatar del usuario autenticado.
+    /// </summary>
+    /// <param name="file">El archivo de imagen enviado como form-data.</param>
+    /// <returns>Un 200 OK con la nueva URL del avatar.</returns>
+    [HttpPost("avatar")]
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
+    {
+        // Valida que se haya enviado un archivo
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "No se ha proporcionado ningún archivo." });
+        }
+        
+        // Valida el tipo de archivo
+        if (!file.ContentType.StartsWith("image/"))
+        {
+            return BadRequest(new { message = "El archivo debe ser de tipo imagen." });
+        }
+        
+        // Valida el formato del archivo
+        var fileExtension = Path.GetExtension(file.FileName);
+        if (!fileExtension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) &&
+            !fileExtension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) &&
+            !fileExtension.Equals(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "El archivo debe ser de formato JPG, JPEG o PNG." });
+        }    
+
+        try
+        {   
+            // Se delega completamente la lógica de subida de avatar al servicio de perfil
+            var newAvatarUrl = await profileService.UploadAvatarAsync(UserId, file);
+            // Devuelve 200 OK con la nueva URL del avatar
+            return Ok(new { avatarUrl = newAvatarUrl });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

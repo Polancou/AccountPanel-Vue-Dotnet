@@ -20,6 +20,7 @@ export interface PerfilUsuarioDto {
   numeroTelefono: string;
   rol: string;
   fechaRegistro: string;
+  avatarUrl?: string;
 }
 // DTO para actualizar el perfil de usuario
 export interface ActualizarPerfilDto {

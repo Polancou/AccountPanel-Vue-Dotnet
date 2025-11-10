@@ -1,5 +1,6 @@
 using AccountPanel.Application.DTOs;
 using AccountPanel.Domain.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace AccountPanel.Application.Interfaces;
 
@@ -30,4 +31,11 @@ public interface IProfileService
     /// <param name="cambioPasswordDto">Los datos para el cambio de contraseña.</param>
     /// <returns>True si el cambio de contraseña fue exitoso, false si el usuario no fue encontrado.</returns>
     Task<AuthResult> CambiarPasswordAsync(int userId, CambiarPasswordDto dto);
+    /// <summary>
+    /// Sube una imagen de perfil para un usuario.
+    /// </summary>
+    /// <param name="userId">El ID del usuario a actualizar.</param>
+    /// <param name="file">El archivo a subir.</param>
+    /// <returns></returns>
+    Task<string> UploadAvatarAsync(int userId, IFormFile file);
 }

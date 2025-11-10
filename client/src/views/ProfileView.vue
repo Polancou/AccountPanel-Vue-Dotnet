@@ -32,6 +32,28 @@ const editableProfile = ref({
   numeroTelefono: ''
 });
 
+// El input donde se carga la imagen de perfil
+const fileInput = ref<HTMLInputElement | null>(null);
+
+// Función para seleccionar el archivo
+const onFileSelected = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    const file = target.files[0]!;
+    // Llama a la acción del store
+    authStore.uploadAvatar(file);
+    // Resetea el input por si el usuario quiere subir el mismo archivo de nuevo
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
+  }
+}
+
+// Función para activar el input de archivo
+const triggerFileInput = () => {
+  fileInput.value?.click();
+}
+
 /**
  * Acción que se ejecuta antes de reenderizar la vista.
  */
@@ -88,89 +110,118 @@ const cancelEdit = () => {
     </div>
 
     <div v-else-if="authStore.userProfile" class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-      <div class="px-4 py-5 sm:px-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
-          Información Personal
-        </h3>
-        <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-          Detalles de tu cuenta
-        </p>
-      </div>
+      <div class="md:col-span-1">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 text-center">
 
-      <div v-if="!isEditing" class="border-t border-gray-200 dark:border-gray-700">
-        <dl>
-          <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Nombre Completo
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-              {{ authStore.userProfile.nombreCompleto }}
-            </dd>
-          </div>
-          <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Email
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-              {{ authStore.userProfile.email }}
-            </dd>
-          </div>
-          <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Teléfono
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-              {{ authStore.userProfile.numeroTelefono }}
-            </dd>
-          </div>
-          <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Rol
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-              {{ authStore.userProfile.rol }}
-            </dd>
-          </div>
-          <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Fecha Registro
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
-              {{ new Date(authStore.userProfile.fechaRegistro).toLocaleDateString() }}
-            </dd>
-          </div>
-          <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:px-6 text-right">
-            <BaseButton @click="enableEditing">
-              Editar Perfil
-            </BaseButton>
-          </div>
-        </dl>
-      </div>
-      <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-        <div class="px-4 py-5 sm:px-6">
-          <Form @submit="handleSaveChanges" :validation-schema="updateProfileSchema" :initial-values="editableProfile"
-            v-slot="{ meta }" class="space-y-4">
-            <BaseInput name="nombreCompleto" label="Nombre Completo" id="editNombreCompleto" type="text" required />
-            <BaseInput name="numeroTelefono" label="Número de Teléfono" id="editNumeroTelefono" type="tel" required />
+          <input type="file" ref="fileInput" @change="onFileSelected" accept="image/png, image/jpeg, image/webp"
+            class="hidden" />
 
-            <div class="flex justify-end space-x-3 pt-4">
-
-              <BaseButton type="button" @click="cancelEdit" :disabled="authStore.isLoading" variant="secondary">
-                Cancelar
-              </BaseButton>
-              <BaseButton type="submit" :disabled="authStore.isLoading" variant="primary">
-                {{ authStore.isLoading ? 'Guardando...' : 'Guardar Cambios' }}
-              </BaseButton>
-
+          <div class="relative w-32 h-32 mx-auto mb-4 group">
+            <img
+              :src="authStore.userProfile.avatarUrl || 'https://www.phoenixptsp.com/wp-content/uploads/2019/01/generic-profile-icon-10.jpg.png'"
+              alt="Foto de perfil"
+              class="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-md" />
+            <div @click="triggerFileInput"
+              class="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="text-white text-sm font-medium">Cambiar</span>
             </div>
+            <div v-if="authStore.isLoading"
+              class="absolute inset-0 w-full h-full flex items-center justify-center bg-black bg-opacity-70 rounded-full">
+              <LoadingSpinner />
+            </div>
+          </div>
 
-            <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
-              {{ authStore.error }}
-            </p>
-
-          </Form>
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ authStore.userProfile.nombreCompleto }}
+          </h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">{{ authStore.userProfile.email }}</p>
         </div>
       </div>
+      <div class="md:col-span-2">
+        <div class="px-4 py-5 sm:px-6">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100">
+            Información Personal
+          </h3>
+          <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+            Detalles de tu cuenta
+          </p>
+        </div>
+
+        <div v-if="!isEditing" class="border-t border-gray-200 dark:border-gray-700">
+          <dl>
+            <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Nombre Completo
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+                {{ authStore.userProfile.nombreCompleto }}
+              </dd>
+            </div>
+            <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Email
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+                {{ authStore.userProfile.email }}
+              </dd>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Teléfono
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+                {{ authStore.userProfile.numeroTelefono }}
+              </dd>
+            </div>
+            <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Rol
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+                {{ authStore.userProfile.rol }}
+              </dd>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Fecha Registro
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0 sm:col-span-2">
+                {{ new Date(authStore.userProfile.fechaRegistro).toLocaleDateString() }}
+              </dd>
+            </div>
+            <div class="bg-white dark:bg-gray-800 px-4 py-5 sm:px-6 text-right">
+              <BaseButton @click="enableEditing">
+                Editar Perfil
+              </BaseButton>
+            </div>
+          </dl>
+        </div>
+        <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+          <div class="px-4 py-5 sm:px-6">
+            <Form @submit="handleSaveChanges" :validation-schema="updateProfileSchema" :initial-values="editableProfile"
+              v-slot="{ meta }" class="space-y-4">
+              <BaseInput name="nombreCompleto" label="Nombre Completo" id="editNombreCompleto" type="text" required />
+              <BaseInput name="numeroTelefono" label="Número de Teléfono" id="editNumeroTelefono" type="tel" required />
+
+              <div class="flex justify-end space-x-3 pt-4">
+
+                <BaseButton type="button" @click="cancelEdit" :disabled="authStore.isLoading" variant="secondary">
+                  Cancelar
+                </BaseButton>
+                <BaseButton type="submit" :disabled="authStore.isLoading" variant="primary">
+                  {{ authStore.isLoading ? 'Guardando...' : 'Guardar Cambios' }}
+                </BaseButton>
+
+              </div>
+
+              <p v-if="authStore.error" class="text-sm text-center text-red-600 dark:text-red-400">
+                {{ authStore.error }}
+              </p>
+
+            </Form>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div v-else class="text-center py-10">
