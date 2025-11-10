@@ -53,3 +53,8 @@ export interface PagedResultDto<T> {
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 }
+// DTO para el token de acceso y refresco
+export interface TokenResponseDto {
+  accessToken: string;
+  refreshToken: string;
+}

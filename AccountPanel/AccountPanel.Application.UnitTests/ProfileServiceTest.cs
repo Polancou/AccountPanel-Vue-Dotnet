@@ -6,6 +6,7 @@ using AccountPanel.Domain.Models;
 using FluentAssertions;
 using Moq;
 using Microsoft.AspNetCore.Http;
+using AccountPanel.Application.Exceptions;
 
 namespace AccountPanel.Application.UnitTests;
 
@@ -77,23 +78,24 @@ public class ProfileServiceTests
 
     /// <summary>
     /// Prueba el caso de error: cuando se solicita un usuario que no existe,
-    /// el servicio debe devolver null.
+    /// el servicio debe lanzar NotFoundException.
     /// </summary>
     [Fact]
-    public async Task GetProfileByIdAsync_WhenUserDoesNotExist_ShouldReturnNull()
+    public async Task GetProfileByIdAsync_WhenUserDoesNotExist_ShouldThrowNotFoundException() // <-- CAMBIADO
     {
         // --- Arrange (Preparar) ---
         var userId = 99; // Un ID que sabemos que no existirá.
 
-        // Se configura el mock del DbContext para que devuelva null al buscar el usuario.
-        _mockDbContext.Setup(expression: c => c.Usuarios.FindAsync(userId)).ReturnsAsync(value: (Usuario)null);
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userId)).ReturnsAsync((Usuario)null);
 
         // --- Act (Actuar) ---
-        var result = await _profileService.GetProfileByIdAsync(userId: userId);
+        // Usamos Func<Task> para capturar la acción que debe lanzar la excepción
+        Func<Task> act = async () => await _profileService.GetProfileByIdAsync(userId: userId);
 
         // --- Assert (Verificar) ---
-        // Se comprueba que el resultado sea nulo.
-        result.Should().BeNull();
+        // Verificamos que la acción lanza la excepción correcta con el mensaje correcto
+        await act.Should().ThrowAsync<NotFoundException>()
+            .WithMessage("Usuario no encontrado.");
     }
 
     #endregion
@@ -138,28 +140,27 @@ public class ProfileServiceTests
 
     /// <summary>
     /// Prueba el caso de error: si se intenta actualizar un usuario que no existe,
-    /// el servicio debe devolver 'false'.
+    /// el servicio debe lanzar NotFoundException.
     /// </summary>
     [Fact]
-    public async Task ActualizarPerfilAsync_WhenUserDoesNotExist_ShouldReturnFalse()
+    public async Task ActualizarPerfilAsync_WhenUserDoesNotExist_ShouldThrowNotFoundException() // <-- CAMBIADO
     {
         // --- Arrange (Preparar) ---
         var userId = 99;
         var updateDto = new ActualizarPerfilDto { NombreCompleto = "Test", NumeroTelefono = "123" };
 
-        // Se configura el mock para que no encuentre al usuario.
-        _mockDbContext.Setup(expression: c => c.Usuarios.FindAsync(userId)).ReturnsAsync(value: (Usuario)null);
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userId)).ReturnsAsync((Usuario)null);
 
         // --- Act (Actuar) ---
-        var result = await _profileService.ActualizarPerfilAsync(userId: userId,
-            perfilDto: updateDto);
+        Func<Task> act = async () => await _profileService.ActualizarPerfilAsync(userId: userId, perfilDto: updateDto);
 
         // --- Assert (Verificar) ---
-        // 1. Se comprueba que el método devuelva 'false'.
-        result.Should().BeFalse();
+        // 1. Verificamos que lanza la excepción
+        await act.Should().ThrowAsync<NotFoundException>()
+            .WithMessage("Usuario no encontrado.");
 
-        // 2. Se verifica que NUNCA se intentó guardar cambios, ya que no se encontró ningún usuario.
-        _mockDbContext.Verify(expression: c => c.SaveChangesAsync(It.IsAny<CancellationToken>()),
+        // 2. Se verifica que NUNCA se intentó guardar cambios.
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()),
             times: Times.Never);
     }
 
@@ -211,10 +212,10 @@ public class ProfileServiceTests
 
     /// <summary>
     /// Prueba el caso de error: si el usuario proporciona una contraseña antigua incorrecta,
-    /// la operación debe fallar y no debe guardar cambios.
+    /// la operación debe fallar lanzando una ValidationException.
     /// </summary>
     [Fact]
-    public async Task CambiarPasswordAsync_WhenOldPasswordIsIncorrect_ShouldReturnFail()
+    public async Task CambiarPasswordAsync_WhenOldPasswordIsIncorrect_ShouldThrowValidationException() // <-- CAMBIADO
     {
         // --- Arrange (Preparar) ---
         var userId = 1;
@@ -234,12 +235,12 @@ public class ProfileServiceTests
         _mockDbContext.Setup(c => c.Usuarios.FindAsync(userId)).ReturnsAsync(user);
 
         // --- Act (Actuar) ---
-        var result = await _profileService.CambiarPasswordAsync(userId, dto);
+        Func<Task> act = async () => await _profileService.CambiarPasswordAsync(userId, dto);
 
         // --- Assert (Verificar) ---
-        // 1. Verifica que la operación falló con el mensaje correcto
-        result.Success.Should().BeFalse();
-        result.Message.Should().Be(expected: "La contraseña actual es incorrecta.");
+        // 1. Verifica que la operación falló con la excepción y mensaje correctos
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("La contraseña actual es incorrecta.");
 
         // 2. Verifica que NO se llamó a SaveChanges
         _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);

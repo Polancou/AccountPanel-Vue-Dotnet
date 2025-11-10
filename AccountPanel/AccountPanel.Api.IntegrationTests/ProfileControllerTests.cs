@@ -227,10 +227,14 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
         var response = await _client.PutAsJsonAsync($"/api/{ApiVersion}/profile/change-password", dto);
 
         // --- Assert (Verificar) ---
-        // 1. Verifica la respuesta HTTP 400
-        var result = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-        result.Should().NotBeNull();
-        result["message"].Should().Be("La contraseña actual es incorrecta.");
+        // Obtenemos el cuerpo de la respuesta desde JSON
+        var errorBody = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+
+        // Ahora podemos hacer assertions sobre las propiedades del JSON
+        errorBody.Should().NotBeNull();
+        errorBody.Should().ContainKey("Message");
+        errorBody["Message"].ToString().Should().Be("La contraseña actual es incorrecta.");
+        // result["message"].Should().Be("La contraseña actual es incorrecta.");
     }
 
     /// <summary>
@@ -325,6 +329,43 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
 
         // --- Assert (Verificar) ---
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// Prueba que si un token es válido, pero el usuario ha sido eliminado,
+    /// el middleware de excepciones devuelve 404.
+    /// </summary>
+    [Fact]
+    public async Task GetMyProfile_WithValidTokenForDeletedUser_ShouldReturnNotFound()
+    {
+        // --- Arrange (Preparar) ---
+        // 1. Creamos un usuario y obtenemos su token
+        var (userId, token) = await _factory.CreateUserAndGetTokenAsync(
+            name: "Usuario a Borrar",
+            email: "deleted@email.com");
+
+        // 2. Configuramos el cliente con ese token
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(scheme: "Bearer",
+            parameter: token);
+
+        // 3. Borramos el usuario de la base de datos
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = await context.Usuarios.FindAsync(userId);
+            context.Usuarios.Remove(user);
+            await context.SaveChangesAsync();
+        }
+
+        // --- Act (Actuar) ---
+        // 4. Intentamos obtener el perfil
+        var response = await _client.GetAsync(requestUri: $"/api/{ApiVersion}/profile/me");
+
+        // --- Assert (Verificar) ---
+        // 5. Verificamos que la API devuelve 404 Not Found
+        response.StatusCode.Should().Be(expected: HttpStatusCode.NotFound);
+        var errorBody = await response.Content.ReadAsStringAsync();
+        errorBody.Should().Contain("Usuario no encontrado.");
     }
 
     #endregion

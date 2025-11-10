@@ -165,13 +165,13 @@ public class AuthControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetime
     public async Task Login_WithValidCredentials_ShouldReturnOkAndJwtToken()
     {
         // --- Arrange (Preparar) ---
-        // 1. Se crea y guarda un usuario de prueba en la base de datos.
         var password = "PasswordSegura123";
+        var email = "login.test@email.com";
         using (var scope = _factory.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var user = new Usuario(nombreCompleto: "Test Login",
-                email: "login.test@email.com",
+                email: email,
                 numeroTelefono: "111222333",
                 rol: RolUsuario.User);
             user.EstablecerPasswordHash(passwordHash: BCrypt.Net.BCrypt.HashPassword(inputKey: password));
@@ -179,20 +179,30 @@ public class AuthControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetime
             await context.SaveChangesAsync();
         }
 
-        // 2. Se crea el DTO con las credenciales correctas.
-        var loginDto = new LoginUsuarioDto { Email = "login.test@email.com", Password = password };
+        var loginDto = new LoginUsuarioDto { Email = email, Password = password };
 
         // --- Act (Actuar) ---
-        // Se envía la petición POST al endpoint de login.
         var response = await _client.PostAsJsonAsync(requestUri: $"/api/{ApiVersion}/auth/login",
             value: loginDto);
 
         // --- Assert (Verificar) ---
-        // 1. Se verifica que la respuesta sea 200 OK.
         response.StatusCode.Should().Be(expected: HttpStatusCode.OK);
-        // 2. Se verifica que el cuerpo de la respuesta contenga una clave "token" con un valor no vacío.
-        var responseData = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-        responseData.Should().ContainKey(expected: "token").WhoseValue.Should().NotBeNullOrEmpty();
+
+        // 1. Verificamos que el cuerpo de la respuesta sea el DTO esperado.
+        var responseData = await response.Content.ReadFromJsonAsync<TokenResponseDto>();
+        responseData.Should().NotBeNull();
+        responseData.AccessToken.Should().NotBeNullOrEmpty();
+        responseData.RefreshToken.Should().NotBeNullOrEmpty();
+
+        // 2. Verificamos que el refresh token se guardó en la base de datos.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = await context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+            user.Should().NotBeNull();
+            user.RefreshToken.Should().Be(responseData.RefreshToken);
+            user.RefreshTokenExpiryTime.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), precision: TimeSpan.FromSeconds(10));
+        }
     }
 
     #endregion

@@ -128,17 +128,19 @@ public class AuthServiceTests
         _mockDbContext.Setup(c => c.Usuarios).ReturnsDbSet(new List<Usuario>());
 
         // 3. Se configura el servicio de token para que devuelva un token de prueba.
-        _mockTokenService.Setup(t => t.CrearToken(It.IsAny<Usuario>())).Returns("jwt-test-token");
-
+        _mockTokenService.Setup(t => t.CrearToken(It.IsAny<Usuario>())).Returns("jwt-access-token");
+        _mockTokenService.Setup(t => t.GenerarRefreshToken()).Returns("jwt-refresh-token");
         // --- Act (Actuar) ---
         var result = await _authService.ExternalLoginAsync(externalLoginDto);
 
         // --- Assert (Verificar) ---
         // Se comprueba que la operación fue exitosa y devolvió el token esperado.
-        result.Success.Should().BeTrue();
-        result.Token.Should().Be("jwt-test-token");
+        result.Should().NotBeNull();
+        result.Should().BeOfType<TokenResponseDto>();
+        result.AccessToken.Should().Be("jwt-access-token");
+        result.RefreshToken.Should().Be("jwt-refresh-token");
 
         // Se verifica que se intentó guardar el nuevo usuario y el nuevo login externo.
-        _mockDbContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockDbContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
     }
 }

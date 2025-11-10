@@ -2,10 +2,10 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 // Importaciones para llamadas a API y enrutamiento
-import apiClient from '@/services/api'; 
-import { useRouter } from 'vue-router' 
+import apiClient from '@/services/api';
+import { useRouter } from 'vue-router'
 // Importaciones para DTO
-import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto, JwtPayload } from "@/types/dto.ts"
+import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto, JwtPayload, TokenResponseDto } from "@/types/dto.ts"
 // Importación de Toast de Vue Sonner
 import { toast } from 'vue-sonner'
 // Importación de jwtDecode para decodificar el token
@@ -19,8 +19,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- State ---
 
-  // Definimos el token, usamos <string | null> para indicar que puede ser una cadena o nulo.
+  // Definimos el token,
   const token = ref<string | null>(null)
+  // Definimos el token de refresco
+  const refreshToken = ref<string | null>(null)
   // Para mostrar indicadores de carga en la UI mientras se hacen llamadas a la API.
   const isLoading = ref<boolean>(false)
   // Para mostrar mensajes de error al usuario.
@@ -53,13 +55,11 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       // Llamada a la API (POST a /api/v1/auth/login)
-      const response = await apiClient.post<{ token: string }>('/v1/auth/login', credentials)
-      // Si la respuesta es exitosa
-      const newToken = response.data.token
-      // Actualiza el estado reactivo del token
-      token.value = newToken
-      // Actualiza el estado local con el rol
-      setAuthState(newToken)
+      const response = await apiClient.post<TokenResponseDto>('/v1/auth/login', credentials)
+      // Obtenemos los tokens de acceso y refresco
+      const { accessToken, refreshToken: newRefreshToken } = response.data
+      // Guardamos ambos tokens
+      setAuthState(accessToken, newRefreshToken)
       // Muestra un toast de vue sonner indicando que la sesión se inició correctamente
       toast.success('Sesión iniciada correctamente');
       // Redirige a la página de perfil
@@ -119,6 +119,8 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     // Reinicia el estado de perfil
     userProfile.value = null
+    // Reinicia el estado de refresco
+    refreshToken.value = null
     // Reinicia el estado de la carga
     isLoading.value = false
     // Reinicia el mensaje de error
@@ -201,7 +203,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       error.value = message;
       // Si el error es 401 (token inválido), cierra sesión localmente
-  
+
       return false; // Indica fallo
     } finally {
       isLoading.value = false
@@ -253,7 +255,7 @@ export const useAuthStore = defineStore('auth', () => {
     // 1. Prepara el FormData
     const formData = new FormData();
     // El debe ser el mismo que el nombre del param en el backend
-    formData.append('file', file); 
+    formData.append('file', file);
 
     try {
       // 2. Envía la petición POST como 'multipart/form-data'
@@ -277,24 +279,59 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function setAuthState(newToken: string) {
-    token.value = newToken
+  /**
+   * Función interna para establecer el estado de autenticación
+   */
+  function setAuthState(accessToken: string, newRefreshToken?: string | null) {
+    // Actualiza el estado local con el token
+    token.value = accessToken
     try {
-      // Decodifica el token para extraer el rol
-      const decoded = jwtDecode<JwtPayload>(newToken)
-      // Actualiza el estado local con el rol
+      // Decodifica el token para extraer el rol y el nombre del usuario
+      const decoded = jwtDecode<JwtPayload>(accessToken)
       userRole.value = decoded.role
     } catch (e) {
       console.error("Error decodificando el token:", e)
       userRole.value = null
     }
+
+    // Si nos pasan un nuevo refresh token, lo guardamos
+    // (si es undefined, no cambia el valor existente)
+    if (newRefreshToken !== undefined) {
+      refreshToken.value = newRefreshToken
+    }
+  }
+
+  /**
+   * Intenta refrescar el token de acceso usando el refresh token.
+   * @returns boolean - True si fue exitoso, false si falló.
+   */
+  async function refreshAccessToken(): Promise<boolean> {
+    if (!refreshToken.value) {
+      return false // No hay refresh token, no se puede refrescar
+    }
+
+    try {
+      const response = await apiClient.post<TokenResponseDto>('/v1/auth/refresh', {
+        refreshToken: refreshToken.value
+      })
+
+      const { accessToken, refreshToken: newRefreshToken } = response.data
+      // Guardamos los nuevos tokens
+      setAuthState(accessToken, newRefreshToken)
+      return true
+    } catch (error) {
+      console.error("No se pudo refrescar el token", error)
+      // Si el refresh falla (ej. token expirado), cerramos sesión
+      logout()
+      return false
+    }
   }
 
   return {
     // Exporta las props
-    token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin,
+    token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin, refreshToken,
     // Exporta los actions
-    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar
+    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar, refreshAccessToken
   }
 },
   {

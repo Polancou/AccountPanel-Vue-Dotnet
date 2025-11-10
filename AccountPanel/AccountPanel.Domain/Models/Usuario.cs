@@ -19,15 +19,24 @@ public class Usuario
 {
     #region Propiedades
 
-    [Key] 
+    /// <summary>
+    /// Representa la entidad principal de un usuario en la aplicación.
+    /// </summary>
+    [Key]
     public int Id { get; private set; }
-
-    [Required] [MaxLength(100)] 
+    /// <summary>
+    /// El nombre completo del usuario.
+    /// </summary>
+    [Required]
+    [MaxLength(100)]
     public string NombreCompleto { get; private set; }
-
-    [Required] [EmailAddress] [MaxLength(100)] 
+    /// <summary>
+    /// El email del usuario.
+    /// </summary>
+    [Required]
+    [EmailAddress]
+    [MaxLength(100)]
     public string Email { get; private set; }
-
     /// <summary>
     /// El hash de la contraseña. Es opcional ('nullable') para permitir
     /// inicios de sesión de terceros (ej. Google) que no usan contraseña en nuestro sistema.
@@ -36,12 +45,13 @@ public class Usuario
     /// <summary>
     /// El número de teléfono del usuario.
     /// </summary>
-    [Required] [MaxLength(20)] 
+    [Required]
+    [MaxLength(20)]
     public string NumeroTelefono { get; private set; }
     /// <summary>
     /// El rol del usuario.
     /// </summary>
-    [Required] 
+    [Required]
     public RolUsuario Rol { get; private set; }
     /// <summary>
     /// La fecha de registro del usuario.
@@ -51,6 +61,15 @@ public class Usuario
     /// La URL de la imagen de perfil del usuario.
     /// </summary>
     public string? AvatarUrl { get; private set; }
+    /// <summary>
+    /// El token de actualización (refresh token) para mantener la sesión.
+    /// Se almacena aquí (hasheado) para poder revocarlo.
+    /// </summary>
+    public string? RefreshToken { get; private set; }
+    /// <summary>
+    /// La fecha en que expira el token de actualización.
+    /// </summary>
+    public DateTime? RefreshTokenExpiryTime { get; private set; }
 
     #endregion
 
@@ -106,7 +125,7 @@ public class Usuario
 
         NumeroTelefono = nuevoNumero;
     }
-    
+
     /// <summary>
     /// Actualiza la información del perfil del usuario (nombre y teléfono).
     /// </summary>
@@ -121,7 +140,7 @@ public class Usuario
             NumeroTelefono = nuevoNumero;
         }
     }
-    
+
     /// <summary>
     /// Actualiza la URL de la imagen de perfil del usuario.
     /// </summary>
@@ -131,6 +150,15 @@ public class Usuario
         {
             AvatarUrl = nuevoUrl;
         }
+    }
+    
+    /// <summary>
+    /// Establece un nuevo token de actualización y su fecha de expiración.
+    /// </summary>
+    public void SetRefreshToken(string refreshToken, DateTime expiryTime)
+    {
+        RefreshToken = refreshToken;
+        RefreshTokenExpiryTime = expiryTime;
     }
 
     #endregion
