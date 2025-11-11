@@ -40,14 +40,30 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 // Interceptor de Respuesta (Response)
-apiClient.interceptors.response.use((response) => {
-  return response;
-},
+apiClient.interceptors.response.use(
+  (response) => {
+    // Si la respuesta es exitosa, solo la devolvemos
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     const authStore = useAuthStore();
 
-    // Si el error es 401 (Token Expirado) y no es un reintento
+    // Si la petición que falló (con 401) era la de REFRESH,
+    // significa que el refresh token es inválido. No hay nada que hacer.
+    // Cerramos sesión y rechazamos la promesa para detener el bucle.
+    if (originalRequest.url.endsWith('/v1/auth/refresh')) {
+      authStore.logout(); // Cierra la sesión
+      // Notificamos al usuario
+      if (router.currentRoute.value.name !== 'login') {
+        toast.error('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
+      }
+      // Rechazamos para detener cualquier otra acción
+      return Promise.reject(error);
+    }
+
+
+    // Si el error es 401 (Token Expirado) en CUALQUIER OTRA RUTA
     if (error.response.status === 401 && !originalRequest._retry) {
 
       // Si ya se está refrescando, ponemos la petición en cola
@@ -67,21 +83,18 @@ apiClient.interceptors.response.use((response) => {
       isRefreshing = true;
 
       try {
+        // Intentamos refrescar el token
         const success = await authStore.refreshAccessToken();
 
         if (success) {
           // Si el refresh fue exitoso, reintentamos la petición original
           apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + authStore.token;
           originalRequest.headers['Authorization'] = 'Bearer ' + authStore.token;
-          // Procesamos la cola de peticiones fallidas
           processQueue(null, authStore.token);
           return apiClient(originalRequest);
         } else {
-          // Si el refresh falló (ej. refresh token expirado)
+          // Si el refresh falló (refreshAccessToken ya llama a logout)
           processQueue(new Error("Refresh token failed"), null);
-          if (router.currentRoute.value.name !== 'login') {
-            toast.error('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
-          }
           return Promise.reject(error);
         }
       } catch (e) {

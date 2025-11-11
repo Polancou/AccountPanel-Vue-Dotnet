@@ -7,6 +7,7 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import { Form } from 'vee-validate'
 import { z } from 'zod'
 import { toTypedSchema } from '@vee-validate/zod'
+import { GoogleLogin } from 'vue3-google-login'
 
 // Accedemos al store de autenticación
 const authStore = useAuthStore()
@@ -46,7 +47,15 @@ const goToRegister = () => {
       <h2 class="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">
         Iniciar Sesión
       </h2>
+      <div class="py-4">
+        <GoogleLogin :callback="authStore.handleGoogleLogin" class="w-full justify-center" />
+      </div>
 
+      <div class="flex items-center justify-center space-x-2">
+        <span class="h-px bg-gray-300 w-full"></span>
+        <span class="text-gray-500 text-sm dark:text-gray-400">o</span>
+        <span class="h-px bg-gray-300 w-full"></span>
+      </div>
       <Form @submit="handleLogin" :validation-schema="loginSchema" v-slot="{ meta }" class="space-y-6">
         <BaseInput label="Email" id="email" name="email" type="email" placeholder="Ingresar correo electrónico" />
         <BaseInput label="Contraseña" id="password" name="password" type="password" placeholder="Ingresar contraseña" />
@@ -73,4 +82,12 @@ const goToRegister = () => {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+:deep(.w-full) {
+  width: 100%;
+}
+
+:deep(.justify-center) {
+  justify-content: center;
+}
+</style>
