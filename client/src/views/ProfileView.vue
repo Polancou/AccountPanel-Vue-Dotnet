@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/BaseInput.vue';
 import BaseButton from '@/components/common/BaseButton.vue';
@@ -95,6 +95,24 @@ const cancelEdit = () => {
   isEditing.value = false;
   authStore.error = null;
 };
+
+const profileImageUrl = computed(() => {
+  const avatarUrl = authStore.userProfile?.avatarUrl;
+  const genericAvatar = 'https://www.phoenixptsp.com/wp-content/uploads/2019/01/generic-profile-icon-10.jpg.png';
+
+  if (!avatarUrl) {
+    // 1. Si no hay URL, usa la genérica
+    return genericAvatar;
+  }
+
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+    // 2. Si es una URL absoluta (como la de Google), úsala directamente
+    return avatarUrl;
+  }
+
+  // 3. Si es una URL relativa (como /uploads/...), prepende el host
+  return `${uploadsBaseUrl}${avatarUrl}`;
+});
 </script>
 
 <template>
@@ -119,7 +137,7 @@ const cancelEdit = () => {
 
           <div class="relative w-32 h-32 mx-auto mb-4 group">
             <img
-              :src="authStore.userProfile.avatarUrl ? `${uploadsBaseUrl}${authStore.userProfile.avatarUrl}` : 'https://www.phoenixptsp.com/wp-content/uploads/2019/01/generic-profile-icon-10.jpg.png'"
+              :src="profileImageUrl"
               alt="Foto de perfil"
               class="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-md" />
             <div @click="triggerFileInput"

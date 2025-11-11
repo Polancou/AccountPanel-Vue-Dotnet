@@ -36,8 +36,8 @@ public class AuthService(
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(registroDto.Password);
 
         // Crea una nueva instancia de la entidad de dominio Usuario.
-        var nuevoUsuario = new Usuario(registroDto.NombreCompleto, registroDto.Email, registroDto.NumeroTelefono,
-            RolUsuario.User);
+        var nuevoUsuario = new Usuario(nombreCompleto: registroDto.NombreCompleto, email: registroDto.Email, numeroTelefono: registroDto.NumeroTelefono,
+            rol: RolUsuario.User);
         nuevoUsuario.EstablecerPasswordHash(passwordHash);
 
         // Añade el nuevo usuario a través del contexto y guarda los cambios.
@@ -92,7 +92,7 @@ public class AuthService(
         }
         // Validar que el token de ID sea válido
         var userInfo = await externalAuthValidator.ValidateTokenAsync(externalLoginDto.IdToken);
-        
+
         if (userInfo == null)
         {
             throw new ValidationException("Token externo inválido.");
@@ -105,7 +105,7 @@ public class AuthService(
         // Si el usuario ya se ha logueado antes con este proveedor, obtenemos su usuario
         if (userLogin != null)
         {
-            usuario = userLogin.Usuario; 
+            usuario = userLogin.Usuario;
         }
         else
         {
@@ -114,12 +114,20 @@ public class AuthService(
             // Si el usuario ya se ha logueado antes con este proveedor, simplemente genera un nuevo token.
             if (usuario == null)
             {
-                usuario = new Usuario(userInfo.Name, userInfo.Email, "", RolUsuario.User);
+                // Creamos un nuevo usuario con la información del proveedor.
+                usuario = new Usuario(nombreCompleto: userInfo.Name, email: userInfo.Email, numeroTelefono: "", rol: RolUsuario.User);
+                // Asignamos la URL de la foto del usuario.
+                usuario.SetAvatarUrl(userInfo.PictureUrl);
+                // Guardamos el usuario en la base de datos.
                 await context.Usuarios.AddAsync(usuario);
                 await context.SaveChangesAsync();
             }
             // Se crea el registro del login externo y se asocia con la cuenta de usuario (nueva o existente).
-            var nuevoLogin = new UserLogin("Google", userInfo.ProviderSubjectId, usuario);
+            var nuevoLogin = new UserLogin(
+                loginProvider: "Google",
+                providerKey: userInfo.ProviderSubjectId,
+                usuario: usuario);
+            usuario.SetAvatarUrl(userInfo.PictureUrl);
             await context.UserLogins.AddAsync(nuevoLogin);
             await context.SaveChangesAsync();
         }

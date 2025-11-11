@@ -11,4 +11,5 @@ public class PerfilUsuarioDto
     public string NumeroTelefono { get; set; }
     public string Rol { get; set; }
     public DateTime FechaRegistro { get; set; }
+    public string? AvatarUrl { get; set; }
 }

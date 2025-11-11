@@ -327,11 +327,49 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Maneja el callback de Google Login.
+   * @param response El objeto de credenciales devuelto por Google.
+   */
+  async function handleGoogleLogin(response: any) {
+    isLoading.value = true
+    error.value = null
+
+    const idToken = response.credential; // El IdToken se llama 'credential'
+    if (!idToken) {
+      toast.error("No se recibió la credencial de Google.");
+      isLoading.value = false;
+      return;
+    }
+
+    try {
+      // 1. Llama al endpoint del backend
+      const tokenResponse = await apiClient.post<TokenResponseDto>('/v1/auth/external-login', {
+        provider: 'Google',
+        idToken: idToken
+      })
+
+      // 2. Guarda los tokens (Access + Refresh)
+      const { accessToken, refreshToken: newRefreshToken } = tokenResponse.data
+      setAuthState(accessToken, newRefreshToken)
+
+      toast.success('Sesión iniciada con Google');
+      router.push({ name: 'profile' })
+
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Error al iniciar sesión con Google.'
+      toast.error(message);
+      error.value = message
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     // Exporta las props
     token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin, refreshToken,
     // Exporta los actions
-    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar, refreshAccessToken
+    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar, refreshAccessToken, handleGoogleLogin
   }
 },
   {

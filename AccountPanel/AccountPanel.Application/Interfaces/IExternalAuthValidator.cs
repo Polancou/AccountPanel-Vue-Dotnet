@@ -11,6 +11,8 @@ public class ExternalAuthUserInfo
     public string Email { get; set; }
     /// El nombre completo del usuario según el proveedor.
     public string Name { get; set; }
+    /// La URL de la foto del usuario según el proveedor.
+    public string PictureUrl { get; set; }
 }
 
 /// <summary>
