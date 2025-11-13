@@ -11,4 +11,10 @@ public interface IAdminService
     /// <param name="pageSize">Tamaño de página a mostrar</param>
     /// <returns>Una lista de perfiles de usuarios</returns>
     Task<PagedResultDto<PerfilUsuarioDto>> GetUsersPaginatedAsync(int pageNumber, int pageSize);
+
+    /// <summary>
+    /// Elimina un usuario por su ID.
+    /// </summary>
+    /// <param name="userId">El ID del usuario a eliminar.</param>
+    Task DeleteUserAsync(int userId, int currentAdminId);
 }

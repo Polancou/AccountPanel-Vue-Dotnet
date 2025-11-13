@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AccountPanel.Application.Interfaces;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +16,13 @@ namespace AccountPanel.Api.Controllers;
 public class AdminController(IAdminService adminService) : ControllerBase
 {
     /// <summary>
+    /// Propiedad privada de conveniencia para obtener de forma segura el ID del usuario
+    /// autenticado a partir de los claims del token JWT.
+    /// Esto evita repetir la misma lógica en cada método del controlador.
+    /// </summary>
+    private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+    
+    /// <summary>
     /// Obtiene todos los perfiles de usuarios en el sistema en formato paginado.
     /// </summary>
     /// <param name="pageNumber">Número de página a mostrar</param>
@@ -27,5 +35,19 @@ public class AdminController(IAdminService adminService) : ControllerBase
         var result = await adminService.GetUsersPaginatedAsync(pageNumber: pageNumber, pageSize: pageSize);
         // Devolvemos la lista de usuarios como respuesta.
         return Ok(result);
+    }
+    
+    /// <summary>
+    /// Elimina un usuario del sistema.
+    /// </summary>
+    /// <param name="userId">El ID del usuario a eliminar.</param>
+    /// <returns>True si se eliminó correctamente, false si no se encontró.</returns>
+    [HttpDelete("users/{userId}")]
+    public async Task<IActionResult> DeleteUser(int userId)
+    {
+        // Eliminamos el usuario del sistema.
+        await adminService.DeleteUserAsync(userId: userId, currentAdminId: UserId);
+        // Devolvemos el resultado de la operación.
+        return NoContent();
     }
 }
