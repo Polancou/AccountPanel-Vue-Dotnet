@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AccountPanel.Application.DTOs;
 using AccountPanel.Application.Interfaces;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -21,7 +22,7 @@ public class AdminController(IAdminService adminService) : ControllerBase
     /// Esto evita repetir la misma lógica en cada método del controlador.
     /// </summary>
     private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-    
+
     /// <summary>
     /// Obtiene todos los perfiles de usuarios en el sistema en formato paginado.
     /// </summary>
@@ -36,7 +37,7 @@ public class AdminController(IAdminService adminService) : ControllerBase
         // Devolvemos la lista de usuarios como respuesta.
         return Ok(result);
     }
-    
+
     /// <summary>
     /// Elimina un usuario del sistema.
     /// </summary>
@@ -47,6 +48,21 @@ public class AdminController(IAdminService adminService) : ControllerBase
     {
         // Eliminamos el usuario del sistema.
         await adminService.DeleteUserAsync(userId: userId, currentAdminId: UserId);
+        // Devolvemos el resultado de la operación.
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Actualiza el rol de un usuario.
+    /// </summary>
+    /// <param name="userIdToUpdate">El ID del usuario a actualizar.</param>
+    /// <param name="dto">El DTO con el nuevo rol.</param>
+    /// <returns>True si se actualizó correctamente, false si no se encontró.</returns>
+    [HttpPut("users/{userIdToUpdate}/role")]
+    public async Task<IActionResult> SetUserRole(int userIdToUpdate, [FromBody] ActualizarRolUsuarioDto dto)
+    {
+        // Actualizamos el rol del usuario.
+        await adminService.SetUserRoleAsync(userIdToUpdate: userIdToUpdate, newRole: dto.Rol, currentAdminId: UserId);
         // Devolvemos el resultado de la operación.
         return NoContent();
     }

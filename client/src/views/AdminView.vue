@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/services/api';
-import type { PagedResultDto, PerfilUsuarioDto } from '@/types/dto';
+import type { ActualizarRolUsuarioDto, PagedResultDto, PerfilUsuarioDto } from '@/types/dto';
 import BaseTable from '@/components/common/BaseTable.vue'
 import type { TableColumn } from '@/components/common/BaseTable.vue'
 import BasePagination from '@/components/common/BasePagination.vue'
@@ -105,7 +105,7 @@ const handleDeleteUser = async (id: number) => {
   error.value = null;
 
   try {
-    // Llama al endpoint del backend que creamos
+    // Llama al endpoint para eliminar el usuario
     await apiClient.delete(`/v1/admin/users/${id}`);
 
     // Éxito: muestra un toast de éxito
@@ -114,14 +114,59 @@ const handleDeleteUser = async (id: number) => {
     // Actualiza la lista de usuarios en la UI:
     // Filtra el usuario eliminado de la lista local 'users.value'
     users.value = users.value.filter(user => user.id !== id);
-
-    // (Opcional pero recomendado: si tu paginación se descuadra,
-    // podrías simplemente volver a llamar a loadUsers() para recargar)
-    // await loadUsers(); 
+    // Carga la lista de usuarios nuevamente
+    await loadUsers(); 
 
   } catch (err: any) {
     // Si falla (ej. error 400, 404, 500 del middleware)
     const message = err.response?.data?.message || 'No se pudo eliminar el usuario.';
+    toast.error(message);
+    error.value = message;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+const confirmEditRole = (item: PerfilUsuarioDto) => {
+  const currentAdminId = authStore.userProfile?.id;
+  if (item.id === currentAdminId) {
+    toast.error("No puedes editar tu propio rol.");
+    return;
+  }
+
+  // El rol opuesto al actual
+  const newRole = item.rol === 'Admin' ? 'User' : 'Admin';
+
+  toast.info(`¿Cambiar el rol de ${item.nombreCompleto} a ${newRole}?`, {
+    action: {
+      label: `Cambiar a ${newRole}`,
+      onClick: () => handleUpdateRole(item.id, newRole)
+    },
+    cancel: {
+      label: "Cancelar",
+      onClick: () => toast.dismiss()
+    }
+  });
+}
+
+const handleUpdateRole = async (id: number, newRole: string) => {
+  isLoading.value = true;
+  error.value = null;
+
+  const dto: ActualizarRolUsuarioDto = { rol: newRole };
+
+  try {
+    await apiClient.put(`/v1/admin/users/${id}/role`, dto);
+    toast.success("Rol actualizado correctamente.");
+
+    // Actualiza la UI localmente
+    const user = users.value.find(u => u.id === id);
+    if (user) {
+      user.rol = newRole;
+    }
+
+  } catch (err: any) {
+    const message = err.response?.data?.message || 'No se pudo actualizar el rol.';
     toast.error(message);
     error.value = message;
   } finally {
@@ -158,9 +203,14 @@ const handleDeleteUser = async (id: number) => {
       </template>
 
       <template #col-actions="{ item }">
-        <BaseButton variant="danger-text" @click="confirmDeleteUser(item)">
-          Eliminar
-        </BaseButton>
+        <div class="flex space-x-2">
+          <BaseButton variant="secondary" @click="confirmEditRole(item)">
+            Editar Rol
+          </BaseButton>
+          <BaseButton variant="danger-text" @click="confirmDeleteUser(item)">
+            Eliminar
+          </BaseButton>
+        </div>
       </template>
     </BaseTable>
     <BasePagination v-if="!isLoading && totalPages > 1" :currentPage="currentPage" :totalPages="totalPages"

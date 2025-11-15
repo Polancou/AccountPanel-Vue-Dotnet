@@ -160,6 +160,14 @@ public class Usuario
         RefreshToken = refreshToken;
         RefreshTokenExpiryTime = expiryTime;
     }
+    
+    /// <summary>
+    /// Establece el rol del usuario.
+    /// </summary>
+    public void SetRol(RolUsuario rol)
+    {
+        Rol = rol;
+    }
 
     #endregion
 }

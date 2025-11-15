@@ -58,3 +58,8 @@ export interface TokenResponseDto {
   accessToken: string;
   refreshToken: string;
 }
+
+// DTO para actualizar el rol de un usuario (debería ir al final del archivo)
+export interface ActualizarRolUsuarioDto {
+  rol: string; // "Admin" o "User"
+}

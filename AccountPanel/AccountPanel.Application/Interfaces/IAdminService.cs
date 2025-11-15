@@ -1,4 +1,5 @@
 using AccountPanel.Application.DTOs;
+using AccountPanel.Domain.Models;
 
 namespace AccountPanel.Application.Interfaces;
 
@@ -17,4 +18,12 @@ public interface IAdminService
     /// </summary>
     /// <param name="userId">El ID del usuario a eliminar.</param>
     Task DeleteUserAsync(int userId, int currentAdminId);
+
+    /// <summary>
+    /// Actualiza el rol de un usuario.
+    /// </summary>
+    /// <param name="userIdToUpdate">El ID del usuario a actualizar.</param>
+    /// <param name="newRole">El nuevo rol del usuario.</param>
+    /// <param name="currentAdminId">El ID del administrador que realiza la operación.</param>
+    Task SetUserRoleAsync(int userIdToUpdate, RolUsuario newRole, int currentAdminId);
 }

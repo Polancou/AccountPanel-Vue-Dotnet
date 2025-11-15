@@ -7,7 +7,6 @@ using FluentAssertions;
 using Moq;
 using Moq.EntityFrameworkCore;
 using AccountPanel.Application.Exceptions;
-using Microsoft.VisualBasic;
 
 namespace AccountPanel.Application.UnitTests;
 
@@ -166,4 +165,84 @@ public class AdminServiceTests
     }
 
     #endregion
+
+    #region SetUserRoleAsync
+
+    /// <summary>
+    /// Prueba que al llamar al método SetUserRoleAsync
+    /// el usuario no puede cambiar su propio rol.
+    /// </summary>
+    [Fact]
+    public async Task SetUserRoleAsync_WhenAdminChangeSelf_ShouldThrowValidationException()
+    {
+        // --- Arrange (Preparar) ---
+        var adminId = 2;
+        var userIdToUpdate = 2;
+        var newRole = RolUsuario.Admin;
+
+        // Creamos el objeto usuario que esperamos que FindAsync devuelva
+        var usuarioParaActualizar = new Usuario(nombreCompleto: "Usuario a Actualizar", email: "test@email.com", numeroTelefono: "123", rol: RolUsuario.User);
+
+        // 1. Configura FindAsync para que devuelva nuestro usuario
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userIdToUpdate))
+                      .ReturnsAsync(usuarioParaActualizar);
+        // --- Act (Actuar) ---
+        Func<Task> act = async () => await _adminService.SetUserRoleAsync(userIdToUpdate, newRole, adminId);
+
+        // --- Assert (Verificar) ---
+        await act.Should().ThrowAsync<ValidationException>()
+            .WithMessage("No se puede actualizar el rol del administrador.");
+
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// Prueba que al llamar al método SetUserRoleAsync
+    /// se actualiza el rol del usuario correctamente.
+    /// </summary>
+    [Fact]
+    public async Task SetUserRoleAsync_ShouldUpdateUserRoleSuccessfully()
+    {
+        // --- Arrange (Preparar) ---
+        var adminId = 2; 
+        var userIdToUpdate = 1;
+        var newRole = RolUsuario.Admin;
+
+        // Creamos el objeto usuario que esperamos que FindAsync devuelva
+        var usuarioParaActualizar = new Usuario(nombreCompleto: "Usuario a Actualizar", email: "test@email.com", numeroTelefono: "123", rol: RolUsuario.User);
+
+        // 1. Configura FindAsync para que devuelva nuestro usuario
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userIdToUpdate))
+                      .ReturnsAsync(usuarioParaActualizar);
+        // --- Act (Actuar) ---
+        await _adminService.SetUserRoleAsync(userIdToUpdate, newRole, adminId);
+
+        // --- Assert (Verificar) ---
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+    
+    [Fact]
+    public async Task SetUserRoleAsync_WhenUserDoesNotExist_ShouldThrowNotFoundException()
+    {
+        // --- Arrange (Preparar) ---
+        var adminId = 2;
+        var userIdToUpdate = 99;
+        var newRole = RolUsuario.Admin;
+
+        // Configura FindAsync para que devuelva null, que es lo que prueba el servicio.
+        _mockDbContext.Setup(c => c.Usuarios.FindAsync(userIdToUpdate))
+                      .ReturnsAsync((Usuario)null);
+
+        // --- Act (Actuar) ---
+        Func<Task> act = async () => await _adminService.SetUserRoleAsync(userIdToUpdate, newRole, adminId);
+
+        // --- Assert (Verificar) ---
+        await act.Should().ThrowAsync<NotFoundException>()
+            .WithMessage("No se encontró el usuario.");
+
+        _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
 }

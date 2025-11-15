@@ -20,6 +20,7 @@ using Scalar.AspNetCore;
 using Serilog;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using AccountPanel.Domain.Models;
+using System.Text.Json.Serialization;
 
 // --- LIBRERÍAS DE TERCEROS ---
 
@@ -54,7 +55,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite
 builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
 // --- Configuración de Controladores y Mapeo ---
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 // AutoMapper buscará perfiles en todos los ensamblados de la aplicación.
 builder.Services.AddAutoMapper(cfg => cfg.LicenseKey = builder.Configuration["AutoMapper:Key"],
     AppDomain.CurrentDomain.GetAssemblies());
