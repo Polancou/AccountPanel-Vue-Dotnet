@@ -39,7 +39,11 @@ const handleLogout = () => {
     </aside>
 
     <main class="flex-1 overflow-y-auto p-6">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <Transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </Transition>
+      </RouterView>
     </main>
   </div>
 </template>
@@ -49,5 +53,17 @@ const handleLogout = () => {
 aside {
   display: flex;
   flex-direction: column;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  /* Duración de la animación (150ms) */
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  /* Estado inicial (completamente invisible) */
+  opacity: 0;
 }
 </style>

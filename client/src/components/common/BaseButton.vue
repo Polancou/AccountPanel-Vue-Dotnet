@@ -40,6 +40,10 @@ const variantClasses = computed<string>(() => {
     'focus:outline-none focus:ring-2 focus:ring-offset-2',
     'disabled:opacity-50',
 
+    // Clases de animación
+    'transition duration-150 ease-in-out',
+    'hover:-translate-y-1 hover:scale-105',
+
     // Clases condicionales
     { 'w-full': fullWidth }, // Ancho completo si fullWidth es true
 
