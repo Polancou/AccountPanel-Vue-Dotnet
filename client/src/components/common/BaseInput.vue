@@ -23,6 +23,8 @@ const { value, errorMessage } = useField<string>(toRef(props, 'name'))
     <input :id="id" :type="type" :placeholder="placeholder" :required="required" v-model="value" :class="[
       // 4. Clases base del input
       'input-field',
+      // Clases de animación
+      'transition-colors duration-150 ease-in-out',
       // 5. Clases condicionales para el error
       errorMessage
         ? 'border-red-500 focus:ring-red-500 focus:border-red-500 dark:border-red-500' // Estilo de error

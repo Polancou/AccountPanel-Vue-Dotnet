@@ -4,6 +4,7 @@ using AccountPanel.Application.Interfaces;
 using AccountPanel.Domain.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 
 namespace AccountPanel.Application.Services;
 
@@ -49,7 +50,15 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
         usuario.ActualizarPerfil(nuevoNombre: perfilDto.NombreCompleto, nuevoNumero: perfilDto.NumeroTelefono);
 
         // Persiste los cambios en la base de datos.
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ValidationException("Este usuario fue modificado por otra persona. Por favor, recarga la página e intenta de nuevo.");
+        }
+        
         return true;
     }
 
@@ -115,7 +124,16 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
         }
         // Actualiza la entidad Usuario con la nueva URL
         usuario.SetAvatarUrl(fileUrl);
-        await context.SaveChangesAsync();
+        // Guarda los cambios en la base de datos
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ValidationException("Este usuario fue modificado por otra persona. Por favor, recarga la página e intenta de nuevo.");
+        }
+
         // Devuelve la URL al controlador (y al frontend)
         return fileUrl;
     }

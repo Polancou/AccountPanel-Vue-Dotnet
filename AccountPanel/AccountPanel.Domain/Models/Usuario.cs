@@ -70,6 +70,12 @@ public class Usuario
     /// La fecha en que expira el token de actualización.
     /// </summary>
     public DateTime? RefreshTokenExpiryTime { get; private set; }
+    /// <summary>
+    /// Token de concurrencia. EF Core lo usa para detectar
+    /// si la fila ha sido modificada por otro proceso.
+    /// </summary>
+    [Timestamp]
+    public byte[] RowVersion { get; private set; }
 
     #endregion
 
