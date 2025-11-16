@@ -110,7 +110,7 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TestApiFactory>>();
         // Asegura que el esquema de la base de datos (las tablas) se cree en la base de datos en memoria.
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
     }
 
     /// <summary>

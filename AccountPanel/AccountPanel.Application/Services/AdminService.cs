@@ -25,7 +25,14 @@ public class AdminService(IApplicationDbContext context, IMapper mapper) : IAdmi
         // Eliminamos el usuario del sistema.
         context.Usuarios.Remove(usuario);
         // Guardamos los cambios en la base de datos.
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ValidationException("Este usuario fue modificado por otra persona. Por favor, recarga la página e intenta de nuevo.");
+        }
     }
 
     /// <summary>
@@ -74,6 +81,13 @@ public class AdminService(IApplicationDbContext context, IMapper mapper) : IAdmi
         // Actualizamos el rol del usuario.
         usuario.SetRol(rol: newRole);
         // Guardamos los cambios en la base de datos.
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ValidationException("Este usuario fue modificado por otra persona. Por favor, recarga la página e intenta de nuevo.");
+        }
     }
 }
