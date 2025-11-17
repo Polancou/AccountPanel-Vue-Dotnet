@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Web;
 using AccountPanel.Application.DTOs;
 using AccountPanel.Domain.Models;
 using AccountPanel.Infrastructure.Data;
@@ -443,6 +444,116 @@ public class AdminControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetim
         response.StatusCode.Should().Be(expected: HttpStatusCode.BadRequest);
         var errorBody = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         errorBody["Message"].ToString().Should().Be("No se puede actualizar el rol del administrador.");
+    }
+
+    #endregion
+
+    #region Pruebas de Filtros (GetPAginatedUsers)
+
+    /// <summary>
+    /// Prepara un escenario de prueba con usuarios específicos y devuelve el token de admin.
+    /// </summary>
+    private async Task<string> SetupFilterTestScenarioAsync()
+    {
+        // 1. Crea un admin y obtén su token
+        var (adminId, adminToken) = await _factory.CreateUserAndGetTokenAsync(
+            name: "Admin User", email: "admin@test.com", rol: RolUsuario.Admin);
+
+        // 2. Crea usuarios específicos para buscar
+        await _factory.CreateUserAndGetTokenAsync(
+            name: "Juan Perez", email: "juan@test.com", rol: RolUsuario.User);
+        await _factory.CreateUserAndGetTokenAsync(
+            name: "Maria Garcia", email: "maria@test.com", rol: RolUsuario.User);
+
+        // 3. Configura el cliente con el token de admin
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        return adminToken;
+    }
+
+    [Fact]
+    public async Task GetUsers_WithSearchTerm_ShouldReturnFilteredUsers()
+    {
+        // --- Arrange (Preparar) ---
+        await SetupFilterTestScenarioAsync();
+        // Codificamos el término de búsqueda para la URL (ej. "Juan Perez" -> "Juan%20Perez")
+        var searchTerm = HttpUtility.UrlEncode("Juan Perez");
+
+        // --- Act (Actuar) ---
+        var response = await _client.GetAsync(
+            $"/api/{ApiVersion}/admin/users?searchTerm={searchTerm}");
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pagedResponse = await response.Content.ReadFromJsonAsync<PagedResultDto<PerfilUsuarioDto>>();
+
+        // Debería encontrar solo 1 usuario de los 3
+        pagedResponse.TotalCount.Should().Be(1);
+        pagedResponse.Items.Should().HaveCount(1);
+        pagedResponse.Items.First().NombreCompleto.Should().Be("Juan Perez");
+    }
+
+    [Fact]
+    public async Task GetUsers_WithRoleFilter_ShouldReturnFilteredUsers()
+    {
+        // --- Arrange (Preparar) ---
+        await SetupFilterTestScenarioAsync();
+        // El enum RolUsuario.Admin se convertirá en '1'
+        var rolFiltro = (int)RolUsuario.Admin;
+
+        // --- Act (Actuar) ---
+        var response = await _client.GetAsync(
+            $"/api/{ApiVersion}/admin/users?rol={rolFiltro}");
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pagedResponse = await response.Content.ReadFromJsonAsync<PagedResultDto<PerfilUsuarioDto>>();
+
+        // Debería encontrar solo al usuario "Admin User"
+        pagedResponse.TotalCount.Should().Be(1);
+        pagedResponse.Items.Should().HaveCount(1);
+        pagedResponse.Items.First().Rol.Should().Be("Admin");
+    }
+
+    [Fact]
+    public async Task GetUsers_WithCombinedFilters_ShouldReturnFilteredUsers()
+    {
+        // --- Arrange (Preparar) ---
+        await SetupFilterTestScenarioAsync();
+        var searchTerm = HttpUtility.UrlEncode("maria");
+        var rolFiltro = (int)RolUsuario.User; // Rol "User"
+
+        // --- Act (Actuar) ---
+        var response = await _client.GetAsync(
+            $"/api/{ApiVersion}/admin/users?searchTerm={searchTerm}&rol={rolFiltro}");
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pagedResponse = await response.Content.ReadFromJsonAsync<PagedResultDto<PerfilUsuarioDto>>();
+
+        // Debería encontrar solo a "Maria Garcia"
+        pagedResponse.TotalCount.Should().Be(1);
+        pagedResponse.Items.Should().HaveCount(1);
+        pagedResponse.Items.First().NombreCompleto.Should().Be("Maria Garcia");
+    }
+
+    [Fact]
+    public async Task GetUsers_WithSearchTerm_ShouldReturnNoResults()
+    {
+        // --- Arrange (Preparar) ---
+        await SetupFilterTestScenarioAsync();
+        var searchTerm = HttpUtility.UrlEncode("Zacarias"); // No existe
+
+        // --- Act (Actuar) ---
+        var response = await _client.GetAsync(
+            $"/api/{ApiVersion}/admin/users?searchTerm={searchTerm}");
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pagedResponse = await response.Content.ReadFromJsonAsync<PagedResultDto<PerfilUsuarioDto>>();
+
+        // No debería encontrar nada
+        pagedResponse.TotalCount.Should().Be(0);
+        pagedResponse.Items.Should().BeEmpty();
     }
 
     #endregion

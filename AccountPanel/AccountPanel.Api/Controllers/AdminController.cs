@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AccountPanel.Application.DTOs;
 using AccountPanel.Application.Interfaces;
+using AccountPanel.Domain.Models;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,12 +29,22 @@ public class AdminController(IAdminService adminService) : ControllerBase
     /// </summary>
     /// <param name="pageNumber">Número de página a mostrar</param>
     /// <param name="pageSize">Tamaño de página a mostrar</param>
+    /// <param name="searchTerm">Término de búsqueda (opcional) para filtrar por nombre o email.</param>
+    /// <param name="rol">Rol de usuario (opcional) para filtrar.</param>
     /// <returns></returns>
     [HttpGet("users")]
-    public async Task<IActionResult> GetPAginatedUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetPAginatedUsers(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] RolUsuario? rol = null)
     {
-        // Obtenemos todos los usuarios en el sistema.
-        var result = await adminService.GetUsersPaginatedAsync(pageNumber: pageNumber, pageSize: pageSize);
+        // Obtenemos todos los usuarios en el sistema, pasando los filtros.
+        var result = await adminService.GetUsersPaginatedAsync(
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+            searchTerm: searchTerm,
+            rol: rol);
         // Devolvemos la lista de usuarios como respuesta.
         return Ok(result);
     }
