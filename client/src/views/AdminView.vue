@@ -1,51 +1,63 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+// --- Imports ---
+import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/services/api';
-import type { ActualizarRolUsuarioDto, PagedResultDto, PerfilUsuarioDto } from '@/types/dto';
+import type { PagedResultDto, PerfilUsuarioDto, ActualizarRolUsuarioDto } from '@/types/dto';
 import BaseTable from '@/components/common/BaseTable.vue'
 import type { TableColumn } from '@/components/common/BaseTable.vue'
 import BasePagination from '@/components/common/BasePagination.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
+import BaseButton from '@/components/common/BaseButton.vue';
 import { toast } from 'vue-sonner'
+import { useDebounceFn } from '@vueuse/core'
 
-// Obtenemos la instancia de la auth store.
+// --- Store ---
 const authStore = useAuthStore()
-// Define un array con los datos de los usuarios
+
+// --- Estado de la UI ---
 const users = ref<PerfilUsuarioDto[]>([])
-// Define un estado para indicar si se está cargando los datos
 const isLoading = ref<boolean>(false)
 const error = ref<string | null>(null)
 
-// Define las propiedades de la paginación
+// --- Estado de Paginación y Filtros ---
 const currentPage = ref(1)
 const totalPages = ref(0)
 const pageSize = 10
+const searchTerm = ref('') // Conectado al <input> de búsqueda
+const selectedRole = ref<string | number>('') // Conectado al <select> de rol
 
-// Define las columnas que quieres mostrar
-// Las 'key' deben coincidir con las propiedades de PerfilUsuarioDto
+// --- Configuración de la Tabla ---
 const columns: TableColumn[] = [
   { key: 'nombreCompleto', label: 'Nombre' },
   { key: 'email', label: 'Email' },
   { key: 'rol', label: 'Rol' },
   { key: 'fechaRegistro', label: 'Miembro Desde' },
-  { key: 'actions', label: 'Acciones' }
+  { key: 'actions', label: 'Acciones' } // Columna para los botones
 ];
+
+// --- Lógica de Carga de Datos ---
+
 /**
- * Función para cargar los datos de los usuarios
+ * Función principal para cargar los usuarios desde la API.
  */
 const loadUsers = async () => {
   isLoading.value = true
   error.value = null
+
+  // Construye los parámetros de la API dinámicamente
+  const params: any = {
+    pageNumber: currentPage.value,
+    pageSize: pageSize
+  };
+  if (searchTerm.value) {
+    params.searchTerm = searchTerm.value;
+  }
+  if (selectedRole.value !== '') {
+    params.rol = selectedRole.value;
+  }
+
   try {
-    // Llama al endpoint paginado
-    const response = await apiClient.get<PagedResultDto<PerfilUsuarioDto>>('/v1/admin/users', {
-      params: {
-        pageNumber: currentPage.value,
-        pageSize: pageSize
-      }
-    })
-    // Actualiza el estado con los datos de la respuesta
+    const response = await apiClient.get<PagedResultDto<PerfilUsuarioDto>>('/v1/admin/users', { params });
     users.value = response.data.items
     totalPages.value = response.data.totalPages
   } catch (err: any) {
@@ -55,70 +67,66 @@ const loadUsers = async () => {
   }
 }
 
-// Llama al método para cargar los datos de los usuarios al renderizar la vista.
+// Carga inicial al montar el componente
 onMounted(loadUsers)
 
-// --- 5. Crea el manejador para el evento 'page-changed' ---
-const handlePageChange = (newPage: number) => {
-  currentPage.value = newPage
-  loadUsers()
-}
-// Helper para formatear la fecha
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString()
-}
+// --- Observadores (Watchers) para Filtros ---
+
+// Crea una versión de loadUsers con 300ms de retraso
+const debouncedLoadUsers = useDebounceFn(() => {
+  currentPage.value = 1; // Resetea la página al buscar
+  loadUsers();
+}, 300);
+
+// Observa el término de búsqueda
+watch(searchTerm, () => {
+  debouncedLoadUsers();
+});
+
+// Observa el filtro de rol (cambio instantáneo)
+watch(selectedRole, () => {
+  currentPage.value = 1; // Resetea la página al filtrar
+  loadUsers();
+});
+
+// --- Lógica de Acciones de Admin ---
 
 /**
-* Muestra el diálogo de confirmación antes de eliminar.
-*/
+ * Muestra confirmación para eliminar un usuario.
+ */
 const confirmDeleteUser = (item: PerfilUsuarioDto) => {
-  // Obtenemos el ID del usuario actual desde el store
   const currentAdminId = authStore.userProfile?.id;
-
-  // Comprobación de seguridad en el frontend (aunque el backend ya la hace)
   if (item.id === currentAdminId) {
     toast.error("No puedes eliminar tu propia cuenta de administrador.");
     return;
   }
 
-  // Llama al toast de confirmación
   toast.warning(`¿Estás seguro de que quieres eliminar a ${item.nombreCompleto}?`, {
     description: "Esta acción no se puede deshacer.",
     action: {
       label: "Eliminar",
-      // Llama a la lógica de borrado si se confirma
       onClick: () => handleDeleteUser(item.id)
     },
     cancel: {
-      label: "Cancelar",
-      // Cierra el toast si se cancela
-      onClick: () => toast.dismiss()
+      label: "Cancelar"
     }
   });
 }
 
 /**
-* Llama a la API para eliminar el usuario y actualiza la UI.
-*/
+ * Llama a la API para eliminar el usuario.
+ */
 const handleDeleteUser = async (id: number) => {
   isLoading.value = true;
   error.value = null;
-
   try {
-    // Llama al endpoint para eliminar el usuario
     await apiClient.delete(`/v1/admin/users/${id}`);
-
-    // Éxito: muestra un toast de éxito
     toast.success("Usuario eliminado correctamente.");
-
-    // Actualiza la lista de usuarios en la UI:
-    // Filtra el usuario eliminado de la lista local 'users.value'
+    // Actualiza la UI filtrando el usuario eliminado
     users.value = users.value.filter(user => user.id !== id);
-    // Carga la lista de usuarios nuevamente
-    await loadUsers(); 
-
+    // Opcional: recargar si el conteo de paginación es importante
+    // await loadUsers();
   } catch (err: any) {
-    // Si falla (ej. error 400, 404, 500 del middleware)
     const message = err.response?.data?.message || 'No se pudo eliminar el usuario.';
     toast.error(message);
     error.value = message;
@@ -127,6 +135,9 @@ const handleDeleteUser = async (id: number) => {
   }
 }
 
+/**
+ * Muestra confirmación para editar el rol de un usuario.
+ */
 const confirmEditRole = (item: PerfilUsuarioDto) => {
   const currentAdminId = authStore.userProfile?.id;
   if (item.id === currentAdminId) {
@@ -134,7 +145,6 @@ const confirmEditRole = (item: PerfilUsuarioDto) => {
     return;
   }
 
-  // El rol opuesto al actual
   const newRole = item.rol === 'Admin' ? 'User' : 'Admin';
 
   toast.info(`¿Cambiar el rol de ${item.nombreCompleto} a ${newRole}?`, {
@@ -143,12 +153,14 @@ const confirmEditRole = (item: PerfilUsuarioDto) => {
       onClick: () => handleUpdateRole(item.id, newRole)
     },
     cancel: {
-      label: "Cancelar",
-      onClick: () => toast.dismiss()
+      label: "Cancelar"
     }
   });
 }
 
+/**
+ * Llama a la API para actualizar el rol del usuario.
+ */
 const handleUpdateRole = async (id: number, newRole: string) => {
   isLoading.value = true;
   error.value = null;
@@ -173,18 +185,51 @@ const handleUpdateRole = async (id: number, newRole: string) => {
     isLoading.value = false;
   }
 }
+
+// --- Helpers ---
+const handlePageChange = (newPage: number) => {
+  currentPage.value = newPage
+  loadUsers()
+}
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString()
+}
 </script>
 
 <template>
   <div>
     <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Panel de Administrador</h1>
 
-    <div v-if="error" class="bg-red-100 ... mb-4" role="alert">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+      <div class="md:col-span-2">
+        <label for="searchTerm" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Buscar
+          usuario</label>
+        <input id="searchTerm" name="searchTerm" type="text" placeholder="Buscar por nombre o email..."
+          v-model="searchTerm" class="input-field" />
+      </div>
+
+      <div>
+        <label for="roleFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Filtrar por
+          Rol</label>
+        <select id="roleFilter" name="roleFilter" v-model="selectedRole" class="input-field">
+          <option value="">Todos los Roles</option>
+          <option :value="0">User</option>
+          <option :value="1">Admin</option>
+        </select>
+      </div>
+    </div>
+
+    <div v-if="error"
+      class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded dark:bg-red-900 dark:border-red-700 dark:text-red-300 mb-4"
+      role="alert">
       <strong class="font-bold">Error:</strong>
       <span>{{ error }}</span>
     </div>
 
     <BaseTable :columns="columns" :items="users" :isLoading="isLoading">
+
       <template #col-rol="{ item }">
         <span :class="[
           'px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full',
@@ -212,7 +257,9 @@ const handleUpdateRole = async (id: number, newRole: string) => {
           </BaseButton>
         </div>
       </template>
+
     </BaseTable>
+
     <BasePagination v-if="!isLoading && totalPages > 1" :currentPage="currentPage" :totalPages="totalPages"
       @page-changed="handlePageChange" />
   </div>

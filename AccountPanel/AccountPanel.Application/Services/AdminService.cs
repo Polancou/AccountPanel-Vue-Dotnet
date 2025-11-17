@@ -40,20 +40,45 @@ public class AdminService(IApplicationDbContext context, IMapper mapper) : IAdmi
     /// </summary>
     /// <param name="pageNumber">Número de página a mostrar</param>
     /// <param name="pageSize">Tamaño de página a mostrar</param>
+    /// <param name="searchTerm">Término de búsqueda (opcional) para filtrar por nombre o email.</param>
+    /// <param name="rol">Rol de usuario (opcional) para filtrar.</param>
     /// <returns>Una lista de perfiles de usuarios</returns>
-    public async Task<PagedResultDto<PerfilUsuarioDto>> GetUsersPaginatedAsync(int pageNumber, int pageSize)
+    public async Task<PagedResultDto<PerfilUsuarioDto>> GetUsersPaginatedAsync(
+        int pageNumber, int pageSize, string? searchTerm = null, RolUsuario? rol = null)
     {
-        // Obtenemos la cantidad de registros totales.
-        var totalCount = await context.Usuarios.CountAsync();
-        // Obtenemos todos los perfiles de usuarios en el sistema filtrando por página y tamaño.
-        var usuarios = await context.Usuarios
+        // Innicializamos una variable de tipo IQueryable<Usuario> que será la consulta base.
+        IQueryable<Usuario> query = context.Usuarios;
+
+        // Aplicamos el filtro de búsqueda
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var lowerSearchTerm = searchTerm.Trim().ToLower();
+            query = query.Where(u =>
+                u.NombreCompleto.ToLower().Contains(lowerSearchTerm) ||
+                u.Email.ToLower().Contains(lowerSearchTerm)
+            );
+        }
+
+        // Aplicamos el filtro de Rol
+        if (rol.HasValue)
+        {
+            query = query.Where(u => u.Rol == rol.Value);
+        }
+
+        // Obtenemos el conteo total después de aplicar los filtros.
+        var totalCount = await query.CountAsync();
+
+        // Aplicamos el orden y la paginación a la consulta filtrada.
+        var usuarios = await query
                 .OrderBy(u => u.NombreCompleto)
-                .Skip((pageNumber - 1) * pageSize) // Salta las páginas anteriores
-                .Take(pageSize) // Toma solo los de esta página
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
-        // Mapeamos los perfiles a DTO seguro para la respuesta.
+
+        // Mapeo de los resultados
         var usersDto = mapper.Map<List<PerfilUsuarioDto>>(usuarios);
-        // Devolvemos el resultado con los perfiles de usuarios.
+
+        // Se devuelve el resultado con los perfiles de usuarios.
         return new PagedResultDto<PerfilUsuarioDto>
         {
             TotalCount = totalCount,
