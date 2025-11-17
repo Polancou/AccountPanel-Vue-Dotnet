@@ -7,157 +7,205 @@ using FluentValidation;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Data.Sqlite;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace AccountPanel.Api.IntegrationTests;
 
-/// <summary>
-/// WebApplicationFactory personalizada para las pruebas de integración.
-/// Esta clase es responsable de arrancar una versión en memoria de la API
-/// con servicios y una base de datos configurados específicamente para las pruebas.
-/// Implementa IAsyncLifetime para gestionar la creación y destrucción de la base de datos
-/// una sola vez por cada clase de tests, mejorando el rendimiento.
-/// </summary>
 public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     /// <summary>
-    /// Conexión a la base de datos SQLite en memoria que se compartirá entre los tests.
+    /// Cadena de conexión a la base de datos 'master' de SQL Edge,
+    /// usada para crear y eliminar la base de datos de prueba.
     /// </summary>
-    private readonly SqliteConnection _connection;
-
+    private readonly string _masterConnectionString;
+    
     /// <summary>
-    /// Almacena una instancia de IConfiguration construida para el entorno de pruebas.
-    /// Esto es crucial para poder leer configuraciones (como claves de licencia o secretos)
-    /// que son necesarias para registrar servicios en el contenedor de pruebas.
+    /// Cadena de conexión a la base de datos de prueba única
+    /// (ej. "accountpanel_test_...").
+    /// </summary>
+    private readonly string _testConnectionString;
+    
+    /// <summary>
+    /// Nombre único generado aleatoriamente para la base de datos de esta
+    /// ejecución de pruebas, garantizando aislamiento total.
+    /// </summary>
+    private readonly string _dbName = $"accountpanel_test_{Guid.NewGuid():N}";
+    
+    /// <summary>
+    /// Configuración de la aplicación (leída desde user-secrets).
     /// </summary>
     public IConfiguration Configuration { get; private set; }
 
     /// <summary>
     /// Constructor de la fábrica de API para pruebas.
+    /// Se ejecuta UNA SOLA VEZ al inicio de la suite de tests.
     /// </summary>
     public TestApiFactory()
     {
-        // Se crea una conexión a una base de datos SQLite en memoria.
-        // El modo ":memory:" asegura que la base de datos exista solo mientras la conexión esté abierta,
-        // proporcionando un aislamiento completo para las pruebas.
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        // Se construye un objeto IConfiguration para el entorno de pruebas.
-        // Esto permite a la Factory acceder a valores de configuración (ej. de appsettings.json)
-        // de la misma manera que lo hace la aplicación principal.
+        // --- 1. Construir la Configuración ---
         Configuration = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json") // Lee la configuración base del proyecto de pruebas.
-            .AddUserSecrets<TestApiFactory>() // Permite sobreescribir configuraciones con secretos locales.
-            .AddEnvironmentVariables()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .AddUserSecrets<Program>() 
             .Build();
+
+        // --- 2. Leer la Cadena de Conexión 'master' ---
+        _masterConnectionString = Configuration.GetConnectionString("TestConnection");
+
+        if (string.IsNullOrEmpty(_masterConnectionString))
+        {
+            throw new Exception("No se encontró 'ConnectionStrings:TestConnection' en los user-secrets.");
+        }
+
+        // --- 3. Construir la Cadena de Conexión de Prueba (Dinámicamente) ---
+        // Usa SqlConnectionStringBuilder para tomar la cadena 'master'
+        // y solo cambiar el nombre de la base de datos.
+        var testBuilder = new SqlConnectionStringBuilder(_masterConnectionString)
+        {
+            // Reemplaza 'master' por el nombre de nuestra BD de prueba única
+            InitialCatalog = _dbName 
+        };
+        _testConnectionString = testBuilder.ConnectionString;
     }
 
     /// <summary>
     /// Este método se invoca para configurar el host de la aplicación de pruebas.
     /// Aquí es donde sobreescribimos los servicios de producción con nuestras versiones de prueba
-    /// y reconfiguramos la base de datos para que use la versión en memoria.
+    /// (como la base de datos y IEmailService).
     /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureTestServices(services =>
         {
-            // --- Reemplazar la Base de Datos ---
-            // Se busca y elimina la configuración del DbContext de producción.
-            var descriptor =
-                services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
-            if (descriptor != null)
+            // --- 1. Reemplazar la Base de Datos ---
+            // Elimina todos los registros de DbContext (incluyendo SqlServer de Program.cs)
+            var dbContextRegistrations = services.Where(
+                d => d.ServiceType == typeof(ApplicationDbContext) || 
+                     d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>) ||
+                     d.ServiceType == typeof(IApplicationDbContext)
+            ).ToList();
+
+            foreach (var descriptor in dbContextRegistrations)
             {
                 services.Remove(descriptor);
             }
 
-            // Se añade un nuevo DbContext configurado para usar nuestra conexión SQLite en memoria.
-            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
+            // Añade el DbContext usando UseSqlServer con la CADENA DE PRUEBA dinámica
+            services.AddDbContext<ApplicationDbContext>(options =>
+            {
+                options.UseSqlServer(_testConnectionString);
+            });
+            
+            // Registra la interfaz (UNA SOLA VEZ)
+            services.AddScoped<IApplicationDbContext>(provider => 
+                provider.GetRequiredService<ApplicationDbContext>());
 
-            // Reemplaza el IEmailService real por un Mock que no haga nada
-            var emailDescriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(IEmailService));
+            // --- 2. Mock de IEmailService ---
+            // Elimina el servicio de email real (Mailtrap/SendGrid)
+            var emailDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IEmailService));
             if (emailDescriptor != null)
             {
                 services.Remove(emailDescriptor);
             }
-
-            // Añadimos un mock que "finge" enviar emails exitosamente
+            
+            // Añade un Mock que "finge" enviar correos exitosamente
             var mockEmailService = new Mock<IEmailService>();
-            mockEmailService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                            .Returns(Task.CompletedTask);
+            mockEmailService
+                .Setup(s => s.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(Task.CompletedTask);
+            mockEmailService
+                .Setup(s => s.SendPasswordResetEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(Task.CompletedTask);
             services.AddSingleton(mockEmailService.Object);
 
-            // --- Re-registrar Servicios ---
-            // Es crucial que el contenedor de DI de las pruebas conozca las mismas interfaces y clases
-            // que la aplicación principal, ya que el WebApplicationFactory construye la app desde Program.cs.
+            // --- 3. Re-registrar Servicios ---
+            // Vuelve a registrar todos los servicios de la aplicación
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProfileService, ProfileService>();
             services.AddScoped<ITokenService, TokenService>();
             services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
             services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<IFileStorageService, FileStorageService>();
-            services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
-
-            // --- Re-registrar Otras Dependencias ---
-            // Se registra AutoMapper usando la configuración específica que requiere licencia.
-            services.AddAutoMapper(cfg => { cfg.LicenseKey = Configuration["AutoMapper:Key"]; }, AppDomain.CurrentDomain.GetAssemblies());
-
-            // Se registran los validadores de FluentValidation desde la capa de Application.
+            // --- 4. Re-registrar Otras Dependencias ---
+            services.AddAutoMapper(cfg => { cfg.LicenseKey = Configuration["AutoMapper:Key"]; },
+                AppDomain.CurrentDomain.GetAssemblies());
             services.AddValidatorsFromAssembly(typeof(IApplicationDbContext).Assembly);
         });
     }
 
     /// <summary>
-    /// Este método se ejecuta UNA VEZ antes de que comiencen todos los tests de la clase
-    /// que usa esta Factory (gracias a IAsyncLifetime).
+    /// Se ejecuta UNA VEZ al inicio de toda la suite de tests.
+    /// Crea la base de datos de prueba única y aplica las migraciones.
     /// </summary>
     public async Task InitializeAsync()
     {
-        using var scope = Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TestApiFactory>>();
-        // Asegura que el esquema de la base de datos (las tablas) se cree en la base de datos en memoria.
-        await context.Database.MigrateAsync();
+        // 1. Conéctate a 'master' y CREA la base de datos de prueba
+        await using (var connection = new SqlConnection(_masterConnectionString))
+        {
+            await connection.OpenAsync();
+            await using (var command = connection.CreateCommand())
+            {
+                command.CommandText = $"CREATE DATABASE [{_dbName}]";
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        // 2. Ahora conéctate a la NUEVA base de datos y aplica las migraciones
+        using (var scope = Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await context.Database.MigrateAsync(); // Aplica las migraciones de SQL Server
+        }
     }
 
     /// <summary>
-    /// Este método se ejecuta UNA VEZ después de que han terminado todos los tests de la clase.
-    /// Se encarga de cerrar y liberar los recursos de la conexión a la base de datos.
+    /// Se ejecuta UNA VEZ al final de toda la suite de tests.
+    /// Destruye la base de datos de prueba única para limpiar.
     /// </summary>
     public new async Task DisposeAsync()
     {
-        await _connection.CloseAsync();
-        await _connection.DisposeAsync();
+        // 1. Conéctate a 'master' y BORRA la base de datos de prueba
+        await using (var connection = new SqlConnection(_masterConnectionString))
+        {
+            await connection.OpenAsync();
+            await using (var command = connection.CreateCommand())
+            {
+                // Cierra forzosamente todas las conexiones activas a la BD de prueba
+                command.CommandText = $"ALTER DATABASE [{_dbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE";
+                await command.ExecuteNonQueryAsync();
+                
+                // Borra la base de datos
+                command.CommandText = $"DROP DATABASE [{_dbName}]";
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+        
         await base.DisposeAsync();
     }
-
+    
     /// <summary>
-    /// Método de utilidad para limpiar los datos de la base de datos entre ejecuciones de tests,
-    /// asegurando que cada test comience en un estado limpio y predecible.
+    /// Método de utilidad para limpiar TODAS las tablas *entre* tests,
+    /// asegurando que cada test comience con una base de datos vacía.
     /// </summary>
     public async Task ResetDatabaseAsync()
     {
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        // Borra todos los datos de las tablas especificadas.
-        await context.Database.ExecuteSqlRawAsync("DELETE FROM UserLogins");
-        await context.Database.ExecuteSqlRawAsync("DELETE FROM Usuarios");
+
+        // Ejecuta T-SQL para deshabilitar constraints, borrar datos y rehabilitar constraints
+        await context.Database.ExecuteSqlRawAsync("EXEC sp_MSforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT all'");
+        await context.Database.ExecuteSqlRawAsync("EXEC sp_MSforeachtable 'DELETE FROM ?'");
+        await context.Database.ExecuteSqlRawAsync("EXEC sp_MSforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT all'");
     }
-    
+
     /// <summary>
-    /// Método de utilidad para "sembrar" la base de datos con un usuario y obtener su token.
-    /// Esto reduce la duplicación de código en los archivos de prueba.
+    /// Método helper para crear un usuario 'User' estándar.
     /// </summary>
-    /// <param name="name">Nombre del usuario a crear.</param>
-    /// <param name="email">Email del usuario a crear.</param>
-    /// <returns>Una tupla con el ID del usuario creado y su token JWT.</returns>
     public async Task<(int UserId, string Token)> CreateUserAndGetTokenAsync(string name, string email)
     {
         using var scope = Services.CreateScope();
@@ -174,13 +222,8 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     }
     
     /// <summary>
-    /// Método de utilidad para "sembrar" la base de datos con un usuario, su rol y obtener su token.
-    /// Esto reduce la duplicación de código en los archivos de prueba.
+    /// Método helper para crear un usuario con un rol específico (ej. 'Admin').
     /// </summary>
-    /// <param name="name">Nombre del usuario a crear.</param>
-    /// <param name="email">Email del usuario a crear.</param>
-    /// <param name="rol">Rol del usuario a crear.</param>
-    /// <returns>Una tupla con el ID del usuario creado y su token JWT.</returns>
     public async Task<(int userId, string token)> CreateUserAndGetTokenAsync(string name, string email, RolUsuario rol)
     {
         using var scope = Services.CreateScope();

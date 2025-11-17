@@ -21,20 +21,16 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
     /// <returns>Una nueva instancia de ApplicationDbContext configurada para las migraciones.</returns>
     public ApplicationDbContext CreateDbContext(string[] args)
     {
-        // Se construye un objeto IConfiguration para leer el archivo appsettings.json.
-        // Esto permite a las herramientas de diseño encontrar la cadena de conexión
-        // sin necesidad de iniciar todo el host de la aplicación.
-        IConfigurationRoot configuration = new ConfigurationBuilder()
+        var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json")
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .AddUserSecrets<ApplicationDbContext>() 
             .Build();
-        // Se crea un constructor de opciones para el DbContext.
-        var builder = new DbContextOptionsBuilder<ApplicationDbContext>();
-        // Se obtiene la cadena de conexión "DefaultConnection" desde la configuración.
+
+        var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         var connectionString = configuration.GetConnectionString("DefaultConnection");
-        // Se configuran las opciones del DbContext para que utilice SQLite con la cadena de conexión obtenida.
-        builder.UseSqlite(connectionString);
-        // Se devuelve una nueva instancia del ApplicationDbContext con las opciones configuradas.
-        return new ApplicationDbContext(builder.Options);
+        optionsBuilder.UseSqlServer(connectionString);
+
+        return new ApplicationDbContext(optionsBuilder.Options);
     }
 }

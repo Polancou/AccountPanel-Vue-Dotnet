@@ -280,24 +280,17 @@ public class AuthService(
     /// </summary>
     private async Task SendPasswordResetEmailAsync(Usuario usuario)
     {
-        // 1. Esta lógica (crear el enlace) sigue siendo la misma
+        // Crea el enlace
         var frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"];
         var encodedToken = WebUtility.UrlEncode(usuario.PasswordResetToken);
         var resetLink = $"{frontendBaseUrl}/reset-password?token={encodedToken}";
-
-        var emailSubject = "Restablece tu contraseña de AccountPanel";
-
-        // 2. Lee la plantilla HTML desde el archivo
-        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "PasswordResetEmail.html");
-        var emailBody = await File.ReadAllTextAsync(templatePath);
-
-        // 3. Reemplaza los placeholders con los datos reales
-        emailBody = emailBody.Replace("{{UserName}}", usuario.NombreCompleto);
-        emailBody = emailBody.Replace("{{Link}}", resetLink);
-        // 4. La lógica de envío (try-catch) sigue siendo la misma
+        // Envia el mensaje
         try
         {
-            await emailService.SendEmailAsync(usuario.Email, emailSubject, emailBody);
+            await emailService.SendPasswordResetEmailAsync(
+                usuario.Email, 
+                usuario.NombreCompleto, 
+                resetLink);
         }
         catch (Exception ex)
         {
@@ -311,25 +304,17 @@ public class AuthService(
     /// <param name="usuario">El usuario al que se le enviará el correo.</param>
     private async Task SendVerificationEmailAsync(Usuario usuario)
     {
-        // 1. Construir el enlace de verificación
+        // 1. Construir el enlace (AuthService aún es responsable de esto)
         var frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"];
-        // ¡Importante! Usamos el token que ya está guardado en el usuario
         var encodedToken = WebUtility.UrlEncode(usuario.EmailVerificationToken);
         var verificationLink = $"{frontendBaseUrl}/verify-email?token={encodedToken}";
-        // 2. Leer el contenido del email
-        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "VerificationEmail.html");
-        var emailBody = await File.ReadAllTextAsync(templatePath);
-
-        // 3. Reemplazar los placeholders
-        emailBody = emailBody.Replace("{{UserName}}", usuario.NombreCompleto);
-        emailBody = emailBody.Replace("{{Link}}", verificationLink);
-
-        var emailSubject = "¡Bienvenido a AccountPanel! Confirma tu email";
-
-        // 4. Enviar el email (con el try-catch)
+        // 2. Enviar 
         try
         {
-            await emailService.SendEmailAsync(usuario.Email, emailSubject, emailBody);
+            await emailService.SendVerificationEmailAsync(
+                usuario.Email, 
+                usuario.NombreCompleto, 
+                verificationLink);
         }
         catch (Exception ex)
         {
