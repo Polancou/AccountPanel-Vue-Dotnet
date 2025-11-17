@@ -233,10 +233,10 @@ public class AuthServiceTests
 
         // 3. Verifica que se guardó en la BD y se envió el email
         _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _mockEmailService.Verify(s => s.SendEmailAsync(
-            It.Is<string>(email => email == userEmail),
-            It.IsAny<string>(), // subject
-            It.Is<string>(body => body.Contains(fakeToken)) // body
+        _mockEmailService.Verify(s => s.SendPasswordResetEmailAsync(
+            It.Is<string>(email => email == userEmail),         // toEmail
+            It.Is<string>(name => name == "Test User"),         // userName
+            It.Is<string>(link => link.Contains(fakeToken))    // resetLink
         ), Times.Once);
     }
 
@@ -259,8 +259,11 @@ public class AuthServiceTests
 
         // 2. Verifica que NO se guardó nada y NO se envió email
         _mockDbContext.Verify(c => c.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _mockEmailService.Verify(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-    }
+        _mockEmailService.Verify(s => s.SendPasswordResetEmailAsync(
+            It.IsAny<string>(), // toEmail
+            It.IsAny<string>(), // userName
+            It.IsAny<string>()  // resetLink
+        ), Times.Never);    }
 
     #endregion
 

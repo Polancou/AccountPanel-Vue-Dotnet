@@ -53,5 +53,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         // Por ejemplo, no puede haber dos inicios de sesión de 'Google' con el mismo ID de usuario de Google.
         modelBuilder.Entity<UserLogin>()
             .HasKey(l => new { l.LoginProvider, l.ProviderKey });
+        
+        // Configuración para la entidad Usuario
+        var usuarioEntity = modelBuilder.Entity<Usuario>();
+
+        // Le dice a EF Core que RowVersion es un token de concurrencia
+        // SQL Server entiende esto nativamente
+        usuarioEntity.Property(u => u.RowVersion)
+            .IsRowVersion();
     }
 }

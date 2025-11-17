@@ -51,7 +51,7 @@ builder.Services.Configure<MailtrapSettings>(builder.Configuration.GetSection("M
 // --- Configuración de Base de Datos y el Contrato IApplicationDbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 // 1. Se registra el DbContext concreto (ApplicationDbContext) para la gestión de migraciones y sesiones.
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(connectionString));
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
 // 2. Se registra la interfaz IApplicationDbContext para que apunte a la implementación concreta.
 //    Esto permite que la capa de Application pida IApplicationDbContext y reciba una instancia de ApplicationDbContext.
 builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
@@ -97,7 +97,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = false
         };
     })
-    .AddGoogle(options => // Este paquete (Microsoft.AspNetCore.Authentication.Google) es correcto en la capa de API.
+    .AddGoogle(options =>
     {
         var googleAuthNSection = builder.Configuration.GetSection("Authentication:Google");
         options.ClientId = googleAuthNSection["ClientId"];

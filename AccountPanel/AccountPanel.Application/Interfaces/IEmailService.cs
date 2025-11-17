@@ -3,10 +3,18 @@ namespace AccountPanel.Application.Interfaces;
 public interface IEmailService
 {
     /// <summary>
-    /// Envía un correo electrónico de forma asíncrona.
+    /// Envía el correo de verificación de email.
     /// </summary>
-    /// <param name="toEmail">La dirección de email del destinatario.</param>
-    /// <param name="subject">El asunto del correo.</param>
-    /// <param name="htmlBody">El contenido del correo en formato HTML.</param>
-    Task SendEmailAsync(string toEmail, string subject, string htmlBody);
+    /// <param name="toEmail">Email del destinatario.</param>
+    /// <param name="userName">Nombre del usuario (para {{UserName}}).</param>
+    /// <param name="verificationLink">El enlace de verificación (para {{Link}}).</param>
+    Task SendVerificationEmailAsync(string toEmail, string userName, string verificationLink);
+
+    /// <summary>
+    /// Envía el correo de reseteo de contraseña.
+    /// </summary>
+    /// <param name="toEmail">Email del destinatario.</param>
+    /// <param name="userName">Nombre del usuario (para {{UserName}}).</param>
+    /// <param name="resetLink">El enlace de reseteo (para {{Link}}).</param>
+    Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetLink);
 }

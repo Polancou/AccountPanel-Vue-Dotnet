@@ -23,36 +23,58 @@ public class MailtrapEmailService(IConfiguration configuration) : IEmailService
     private readonly MailtrapSettings _settings = configuration.GetSection("MailtrapSettings").Get<MailtrapSettings>();
     
     // Instancia del cliente SMTP
-    public async Task SendEmailAsync(string toEmail, string subject, string htmlBody)
+    public async Task SendVerificationEmailAsync(string toEmail, string userName, string verificationLink)
     {
-        // Creamos el mensaje de correo
+        var emailSubject = "¡Bienvenido a AccountPanel! Confirma tu email";
+
+        // 1. Lee la plantilla
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "VerificationEmail.html");
+        var htmlBody = await File.ReadAllTextAsync(templatePath);
+
+        // 2. Reemplaza placeholders
+        htmlBody = htmlBody.Replace("{{UserName}}", userName);
+        htmlBody = htmlBody.Replace("{{Link}}", verificationLink);
+
+        // 3. Envía el email (usando un nuevo método helper privado)
+        await SendEmailInternalAsync(toEmail, emailSubject, htmlBody);
+    }
+
+    public async Task SendPasswordResetEmailAsync(string toEmail, string userName, string resetLink)
+    {
+        var emailSubject = "Restablece tu contraseña de AccountPanel";
+        
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "PasswordResetEmail.html");
+        var htmlBody = await File.ReadAllTextAsync(templatePath);
+        
+        htmlBody = htmlBody.Replace("{{UserName}}", userName);
+        htmlBody = htmlBody.Replace("{{Link}}", resetLink);
+
+        await SendEmailInternalAsync(toEmail, emailSubject, htmlBody);
+    }
+
+    private async Task SendEmailInternalAsync(string toEmail, string subject, string htmlBody)
+    {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress("AccountPanel App", _settings.FromEmail));
         message.To.Add(new MailboxAddress(toEmail, toEmail));
         message.Subject = subject;
         message.Body = new TextPart("html") { Text = htmlBody };
-        
-        // Creamos el cliente SMTP
-        using var client = new SmtpClient();
 
+        using var client = new SmtpClient();
+        
         try
         {
-            // Conecta al servidor SMTP de Mailtrap
             await client.ConnectAsync(_settings.Host, _settings.Port, MailKit.Security.SecureSocketOptions.StartTls);
-            // Autentícate
             await client.AuthenticateAsync(_settings.Username, _settings.Password);
-            // Envía el email
             await client.SendAsync(message);
         }
         catch (Exception ex)
         {
-            // Log temporal de la excepción
             Console.WriteLine(ex.Message);
             throw;
         }
         finally
         {
-            // Cerramos el cliente SMTP
             await client.DisconnectAsync(true);
         }
     }
