@@ -63,3 +63,15 @@ export interface TokenResponseDto {
 export interface ActualizarRolUsuarioDto {
   rol: string; // "Admin" o "User"
 }
+
+// DTO para solicitar el reseteo de contraseña
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+// DTO para ejecutar el reseteo de contraseña
+export interface ResetPasswordDto {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}

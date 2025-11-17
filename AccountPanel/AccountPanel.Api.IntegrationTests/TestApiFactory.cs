@@ -1,4 +1,3 @@
-using AccountPanel.Api.Middleware;
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Application.Services;
 using AccountPanel.Domain.Models;
@@ -13,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace AccountPanel.Api.IntegrationTests;
 
@@ -78,7 +78,21 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             // Se añade un nuevo DbContext configurado para usar nuestra conexión SQLite en memoria.
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
-            
+
+            // Reemplaza el IEmailService real por un Mock que no haga nada
+            var emailDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(IEmailService));
+            if (emailDescriptor != null)
+            {
+                services.Remove(emailDescriptor);
+            }
+
+            // Añadimos un mock que "finge" enviar emails exitosamente
+            var mockEmailService = new Mock<IEmailService>();
+            mockEmailService.Setup(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                            .Returns(Task.CompletedTask);
+            services.AddSingleton(mockEmailService.Object);
+
             // --- Re-registrar Servicios ---
             // Es crucial que el contenedor de DI de las pruebas conozca las mismas interfaces y clases
             // que la aplicación principal, ya que el WebApplicationFactory construye la app desde Program.cs.

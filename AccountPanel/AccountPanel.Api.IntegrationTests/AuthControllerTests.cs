@@ -206,4 +206,175 @@ public class AuthControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetime
     }
 
     #endregion
+
+    #region Verify Email Testing
+
+    [Fact]
+    public async Task VerifyEmail_WithValidToken_ShouldReturnOk()
+    {
+        // --- Arrange (Preparar) ---
+        var validToken = "test-token-123";
+        var userEmail = "verify@test.com";
+
+        // 1. Creamos un usuario manualmente en la BD con el token
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = new Usuario("Verify User", userEmail, "123", RolUsuario.User);
+            user.SetEmailVerificationToken(validToken); // <-- Asignamos el token
+            await context.Usuarios.AddAsync(user);
+            await context.SaveChangesAsync();
+        }
+
+        // --- Act (Actuar) ---
+        // 2. Llamamos al endpoint GET que creamos
+        var response = await _client.GetAsync($"/api/{ApiVersion}/auth/verify-email?token={validToken}");
+
+        // --- Assert (Verificar) ---
+        // 3. Verificamos que la respuesta sea OK
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        body["message"].Should().Be("Email verificado exitosamente.");
+
+        // 4. Verificamos que el usuario fue actualizado en la BD
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = await context.Usuarios.FirstAsync(u => u.Email == userEmail);
+            user.IsEmailVerified.Should().BeTrue();
+            user.EmailVerificationToken.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task VerifyEmail_WithInvalidToken_ShouldReturnBadRequest()
+    {
+        // --- Arrange (Preparar) ---
+        var invalidToken = "bad-token";
+
+        // (No necesitamos crear ningún usuario)
+
+        // --- Act (Actuar) ---
+        var response = await _client.GetAsync($"/api/{ApiVersion}/auth/verify-email?token={invalidToken}");
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        body["message"].Should().Be("Token de verificación inválido.");
+    }
+
+    #endregion
+
+    #region Forgot & Reset Password Tests
+
+    [Fact]
+    public async Task ForgotPassword_WhenUserExists_ShouldReturnOkAndSetTokenInDb()
+    {
+        // --- Arrange (Preparar) ---
+        // 1. Creamos un usuario en la BD de prueba
+        var email = "user-to-reset@test.com";
+        await _factory.CreateUserAndGetTokenAsync("Reset User", email, RolUsuario.User);
+
+        var dto = new ForgotPasswordDto { Email = email };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PostAsJsonAsync($"/api/{ApiVersion}/auth/forgot-password", dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica la respuesta de la API
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        body["message"].Should().Be("Si existe una cuenta con ese correo, se ha enviado un enlace para restablecer la contraseña.");
+
+        // 2. Verifica que el token se guardó en la BD
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var user = await context.Usuarios.FirstAsync(u => u.Email == email);
+
+        user.PasswordResetToken.Should().NotBeNullOrEmpty();
+        user.PasswordResetTokenExpiryTime.Should().BeCloseTo(DateTime.UtcNow.AddHours(1), precision: TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public async Task ForgotPassword_WhenUserDoesNotExist_ShouldReturnOkSilently()
+    {
+        // --- Arrange (Preparar) ---
+        var dto = new ForgotPasswordDto { Email = "no-existe@test.com" };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PostAsJsonAsync($"/api/{ApiVersion}/auth/forgot-password", dto);
+
+        // --- Assert (Verificar) ---
+        // La API debe devolver OK para no revelar que el email no existe
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        body["message"].Should().Be("Si existe una cuenta con ese correo, se ha enviado un enlace para restablecer la contraseña.");
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithValidToken_ShouldReturnOkAndChangePassword()
+    {
+        // --- Arrange (Preparar) ---
+        var email = "reset-pass@test.com";
+        var validToken = "super-secret-token-123";
+        var newPassword = "NewPassword123!";
+
+        // 1. Creamos el usuario
+        var (userId, _) = await _factory.CreateUserAndGetTokenAsync("Test User", email, RolUsuario.User);
+
+        // 2. Obtenemos su hash de contraseña antiguo
+        string oldHash;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = await context.Usuarios.FindAsync(userId);
+            oldHash = user.PasswordHash; // Guardamos el hash antiguo
+            // 3. Le asignamos el token manualmente
+            user.SetPasswordResetToken(validToken, DateTime.UtcNow.AddHours(1));
+            await context.SaveChangesAsync();
+        }
+
+        var dto = new ResetPasswordDto { Token = validToken, NewPassword = newPassword, ConfirmPassword = newPassword };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PostAsJsonAsync($"/api/{ApiVersion}/auth/reset-password", dto);
+
+        // --- Assert (Verificar) ---
+        // 1. Verifica la respuesta de la API
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        body["message"].Should().Be("Contraseña restablecida exitosamente.");
+
+        // 2. Verifica la BD
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var user = await context.Usuarios.FindAsync(userId);
+
+            // Verifica que el token se limpió
+            user.PasswordResetToken.Should().BeNull();
+            // Verifica que la contraseña cambió
+            user.PasswordHash.Should().NotBe(oldHash);
+            BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash).Should().BeTrue();
+        }
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithInvalidToken_ShouldReturnBadRequest()
+    {
+        // --- Arrange (Preparar) ---
+        var dto = new ResetPasswordDto { Token = "token-que-no-existe", NewPassword = "NewPassword123!", ConfirmPassword = "NewPassword123!" };
+
+        // --- Act (Actuar) ---
+        var response = await _client.PostAsJsonAsync($"/api/{ApiVersion}/auth/reset-password", dto);
+
+        // --- Assert (Verificar) ---
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        body["message"].Should().Be("El token de restablecimiento no es válido.");
+    }
+
+    #endregion
 }

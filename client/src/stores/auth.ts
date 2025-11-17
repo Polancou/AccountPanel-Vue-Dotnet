@@ -5,7 +5,10 @@ import { defineStore } from 'pinia'
 import apiClient from '@/services/api';
 import { useRouter } from 'vue-router'
 // Importaciones para DTO
-import type { LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto, CambiarPasswordDto, JwtPayload, TokenResponseDto } from "@/types/dto.ts"
+import type {
+  LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto,
+  CambiarPasswordDto, JwtPayload, TokenResponseDto, ForgotPasswordDto, ResetPasswordDto
+} from "@/types/dto.ts"
 // Importación de Toast de Vue Sonner
 import { toast } from 'vue-sonner'
 // Importación de jwtDecode para decodificar el token
@@ -365,11 +368,52 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Solicita un email para restablecer la contraseña.
+   */
+  async function forgotPassword(dto: ForgotPasswordDto): Promise<boolean> {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await apiClient.post('/v1/auth/forgot-password', dto);
+      toast.success(response.data.message || "Correo enviado.");
+      return true;
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Error al enviar el correo.';
+      toast.error(message);
+      error.value = message;
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Restablece la contraseña usando un token.
+   */
+  async function resetPassword(dto: ResetPasswordDto): Promise<boolean> {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await apiClient.post('/v1/auth/reset-password', dto);
+      toast.success(response.data.message || "Contraseña restablecida.");
+      return true;
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Error al restablecer la contraseña.';
+      toast.error(message);
+      error.value = message;
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     // Exporta las props
     token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin, refreshToken,
     // Exporta los actions
-    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar, refreshAccessToken, handleGoogleLogin
+    login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar,
+    refreshAccessToken, handleGoogleLogin, forgotPassword, resetPassword
   }
 },
   {

@@ -3,6 +3,8 @@ using AccountPanel.Application.Exceptions;
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Net;
 
 namespace AccountPanel.Application.Services;
 
@@ -15,7 +17,9 @@ namespace AccountPanel.Application.Services;
 public class AuthService(
     IApplicationDbContext context,
     ITokenService tokenService,
-    IExternalAuthValidator externalAuthValidator) : IAuthService
+    IExternalAuthValidator externalAuthValidator,
+    IEmailService emailService,
+    IConfiguration configuration) : IAuthService
 {
     /// <summary>
     /// Registra un nuevo usuario en el sistema.
@@ -43,7 +47,8 @@ public class AuthService(
         // Añade el nuevo usuario a través del contexto y guarda los cambios.
         await context.Usuarios.AddAsync(nuevoUsuario);
         await context.SaveChangesAsync();
-
+        // Enviar el correo de verificación
+        await SendVerificationEmailAsync(nuevoUsuario);
         // Devuelve un resultado exitoso.
         return AuthResult.Ok(null, "Usuario registrado exitosamente.");
     }
@@ -118,6 +123,8 @@ public class AuthService(
                 usuario = new Usuario(nombreCompleto: userInfo.Name, email: userInfo.Email, numeroTelefono: "", rol: RolUsuario.User);
                 // Asignamos la URL de la foto del usuario.
                 usuario.SetAvatarUrl(userInfo.PictureUrl);
+                // Marcamos el email como verificado
+                usuario.MarkEmailAsVerified();
                 // Guardamos el usuario en la base de datos.
                 await context.Usuarios.AddAsync(usuario);
                 await context.SaveChangesAsync();
@@ -178,4 +185,157 @@ public class AuthService(
             RefreshToken = newRefreshToken
         };
     }
+
+    /// <summary>
+    /// Verifica el email de un usuario usando el token de verificación.
+    /// </summary>
+    /// <param name="token">El token enviado al email del usuario.</param>
+    /// <returns>Un AuthResult indicando el éxito o fracaso.</returns>
+    public async Task<AuthResult> VerifyEmailAsync(string token)
+    {
+        // Decodifica el token que viene de la URL
+        var decodedToken = WebUtility.UrlDecode(token);
+        // Busca en la BD usando el token decodificado
+        var usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.EmailVerificationToken == token);
+        // Valida que exista el usuario y que el token no haya expirado
+        if (usuario == null)
+        {
+            return AuthResult.Fail("Token de verificación inválido.");
+        }
+        // Marca el email del usuario como verificado
+        usuario.MarkEmailAsVerified();
+        // Guarda los cambios en la base de datos
+        await context.SaveChangesAsync();
+        // Devuelve un resultado exitoso.
+        return AuthResult.Ok(null, "Email verificado exitosamente.");
+    }
+
+    /// <summary>
+    /// Inicia el proceso de reseteo de contraseña para un email.
+    /// </summary>
+    public async Task<AuthResult> ForgotPasswordAsync(string email)
+    {
+        // 1. Buscar al usuario por su email
+        var usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+
+        // 2. ¡IMPORTANTE! Por seguridad, NUNCA reveles si el email existe o no.
+        //    Devuelve siempre un mensaje de éxito genérico.
+        if (usuario != null)
+        {
+            // 3. Generar un token de reseteo
+            var resetToken = tokenService.GenerarRefreshToken();
+
+            // 4. Establecer el token y una hora de expiración (ej. 1 hora)
+            usuario.SetPasswordResetToken(resetToken, DateTime.UtcNow.AddHours(1));
+
+            // 5. Guardar el token en la base de datos
+            await context.SaveChangesAsync();
+
+            // 6. Enviar el email de reseteo
+            await SendPasswordResetEmailAsync(usuario);
+        }
+
+        // 7. Devolver siempre este mensaje
+        return AuthResult.Ok(null, "Si existe una cuenta con ese correo, se ha enviado un enlace para restablecer la contraseña.");
+    }
+
+    /// <summary>
+    /// Completa el proceso de reseteo de contraseña usando un token.
+    /// </summary>
+    public async Task<AuthResult> ResetPasswordAsync(ResetPasswordDto dto)
+    {
+        // Decodifica el token que viene del DTO (que vino de la URL)
+        var decodedToken = WebUtility.UrlDecode(dto.Token);
+        // Busca en la BD usando el token decodificado
+        var usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.PasswordResetToken == decodedToken);
+
+        // 2. Validar el token y su expiración
+        if (usuario == null)
+        {
+            return AuthResult.Fail("El token de restablecimiento no es válido.");
+        }
+
+        if (usuario.PasswordResetTokenExpiryTime <= DateTime.UtcNow)
+        {
+            return AuthResult.Fail("El token de restablecimiento ha expirado.");
+        }
+
+        // 3. Hashear y establecer la nueva contraseña
+        var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        usuario.EstablecerPasswordHash(newPasswordHash);
+
+        // 4. Limpiar el token para que no se pueda reusar
+        usuario.ClearPasswordResetToken();
+
+        // 5. Guardar los cambios
+        await context.SaveChangesAsync();
+
+        return AuthResult.Ok(null, "Contraseña restablecida exitosamente.");
+    }
+    
+    #region Private Methods
+
+    /// <summary>
+    /// Método helper privado para construir y enviar el email de reseteo.
+    /// </summary>
+    private async Task SendPasswordResetEmailAsync(Usuario usuario)
+    {
+        // 1. Esta lógica (crear el enlace) sigue siendo la misma
+        var frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"];
+        var encodedToken = WebUtility.UrlEncode(usuario.PasswordResetToken);
+        var resetLink = $"{frontendBaseUrl}/reset-password?token={encodedToken}";
+
+        var emailSubject = "Restablece tu contraseña de AccountPanel";
+
+        // 2. Lee la plantilla HTML desde el archivo
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "PasswordResetEmail.html");
+        var emailBody = await File.ReadAllTextAsync(templatePath);
+
+        // 3. Reemplaza los placeholders con los datos reales
+        emailBody = emailBody.Replace("{{UserName}}", usuario.NombreCompleto);
+        emailBody = emailBody.Replace("{{Link}}", resetLink);
+        // 4. La lógica de envío (try-catch) sigue siendo la misma
+        try
+        {
+            await emailService.SendEmailAsync(usuario.Email, emailSubject, emailBody);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al enviar email de reseteo: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Construye y envía el correo de verificación de email.
+    /// </summary>
+    /// <param name="usuario">El usuario al que se le enviará el correo.</param>
+    private async Task SendVerificationEmailAsync(Usuario usuario)
+    {
+        // 1. Construir el enlace de verificación
+        var frontendBaseUrl = configuration["AppSettings:FrontendBaseUrl"];
+        // ¡Importante! Usamos el token que ya está guardado en el usuario
+        var encodedToken = WebUtility.UrlEncode(usuario.EmailVerificationToken);
+        var verificationLink = $"{frontendBaseUrl}/verify-email?token={encodedToken}";
+        // 2. Leer el contenido del email
+        var templatePath = Path.Combine(AppContext.BaseDirectory, "EmailTemplates", "VerificationEmail.html");
+        var emailBody = await File.ReadAllTextAsync(templatePath);
+
+        // 3. Reemplazar los placeholders
+        emailBody = emailBody.Replace("{{UserName}}", usuario.NombreCompleto);
+        emailBody = emailBody.Replace("{{Link}}", verificationLink);
+
+        var emailSubject = "¡Bienvenido a AccountPanel! Confirma tu email";
+
+        // 4. Enviar el email (con el try-catch)
+        try
+        {
+            await emailService.SendEmailAsync(usuario.Email, emailSubject, emailBody);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al enviar email de verificación: {ex.Message}");
+        }
+    }
+    
+    #endregion
 }
