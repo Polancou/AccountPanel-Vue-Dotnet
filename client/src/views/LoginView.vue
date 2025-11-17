@@ -59,6 +59,12 @@ const goToRegister = () => {
       <Form @submit="handleLogin" :validation-schema="loginSchema" v-slot="{ meta }" class="space-y-6">
         <BaseInput label="Email" id="email" name="email" type="email" placeholder="Ingresar correo electrónico" />
         <BaseInput label="Contraseña" id="password" name="password" type="password" placeholder="Ingresar contraseña" />
+        <div class="text-sm text-right">
+          <RouterLink :to="{ name: 'forgot-password' }"
+            class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-blue-500 dark:hover:text-blue-400">
+            ¿Olvidaste tu contraseña?
+          </RouterLink>
+        </div>
         <div>
           <LoadingSpinner v-if="authStore.isLoading" />
           <BaseButton type="submit" :disabled="authStore.isLoading" :fullWidth="true">
@@ -78,6 +84,7 @@ const goToRegister = () => {
           Regístrate aquí
         </button>
       </p>
+
     </div>
   </div>
 </template>

@@ -8,6 +8,8 @@ const RegisterView = () => import('@/views/RegisterView.vue')
 const ProfileView = () => import('@/views/ProfileView.vue')
 const SecurityView = () => import('@/views/SecurityView.vue')
 const AdminView = () => import('@/views/AdminView.vue')
+const ForgotPasswordView = () => import('@/views/ForgotPasswordView.vue')
+const ResetPasswordView = () => import('@/views/ResetPasswordView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,6 +26,20 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: RegisterView,
+      meta: { requiresAuth: false }
+    },
+    {
+      // Define la route para la vista de ForgotPassword
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: ForgotPasswordView,
+      meta: { requiresAuth: false } 
+    },
+    {
+      // Define la route para la vista de ResetPassword
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPasswordView,
       meta: { requiresAuth: false }
     },
     {

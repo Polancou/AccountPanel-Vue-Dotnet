@@ -76,6 +76,22 @@ public class Usuario
     /// </summary>
     [Timestamp]
     public byte[] RowVersion { get; private set; }
+    /// <summary>
+    /// El token único enviado al email del usuario para confirmar su cuenta.
+    /// </summary>
+    public string? EmailVerificationToken { get; private set; }
+    /// <summary>
+    /// Indica si el email del usuario ha sido verificado.
+    /// </summary>
+    public bool IsEmailVerified { get; private set; }
+    /// <summary>
+    /// Token único para restablecer la contraseña.
+    /// </summary>
+    public string? PasswordResetToken { get; private set; }
+    /// <summary>
+    /// La fecha y hora en que expira el token de restablecimiento.
+    /// </summary>
+    public DateTime? PasswordResetTokenExpiryTime { get; private set; }
 
     #endregion
 
@@ -93,17 +109,20 @@ public class Usuario
     /// </summary>
     public Usuario(string nombreCompleto, string email, string numeroTelefono, RolUsuario rol)
     {
+        // Verifica que el nombre completo no sea nulo o vacío.
         if (string.IsNullOrWhiteSpace(nombreCompleto))
             throw new ArgumentNullException(nameof(nombreCompleto), "El nombre completo es obligatorio.");
-
+        // Verifica que el email no sea nulo o vacío.
         if (string.IsNullOrWhiteSpace(email))
             throw new ArgumentNullException(nameof(email), "El email es obligatorio.");
-
+        // Establece los valores de la entidad.
         NombreCompleto = nombreCompleto;
         Email = email;
         NumeroTelefono = numeroTelefono;
         Rol = rol;
         FechaRegistro = DateTime.UtcNow;
+        // Los usuarios nuevos comienzan sin verificar.
+        IsEmailVerified = false;
     }
 
     #endregion
@@ -173,6 +192,41 @@ public class Usuario
     public void SetRol(RolUsuario rol)
     {
         Rol = rol;
+    }
+
+    /// <summary>
+    /// Establece el token de verificación de email.
+    /// </summary>
+    public void SetEmailVerificationToken(string token)
+    {
+        EmailVerificationToken = token;
+    }
+
+    /// <summary>
+    /// Marca el email del usuario como verificado y limpia el token.
+    /// </summary>
+    public void MarkEmailAsVerified()
+    {
+        IsEmailVerified = true;
+        EmailVerificationToken = null; // El token ya no es necesario
+    }
+
+    /// <summary>
+    /// Establece un nuevo token de restablecimiento de contraseña y su expiración.
+    /// </summary>
+    public void SetPasswordResetToken(string token, DateTime expiryTime)
+    {
+        PasswordResetToken = token;
+        PasswordResetTokenExpiryTime = expiryTime;
+    }
+
+    /// <summary>
+    /// Limpia el token de restablecimiento de contraseña (usado después de un reseteo exitoso).
+    /// </summary>
+    public void ClearPasswordResetToken()
+    {
+        PasswordResetToken = null;
+        PasswordResetTokenExpiryTime = null;
     }
 
     #endregion

@@ -19,7 +19,6 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using AccountPanel.Domain.Models;
 using System.Text.Json.Serialization;
 
 // --- LIBRERÍAS DE TERCEROS ---
@@ -45,6 +44,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IEmailService, MailtrapEmailService>();
+
+builder.Services.Configure<MailtrapSettings>(builder.Configuration.GetSection("MailtrapSettings"));
 
 // --- Configuración de Base de Datos y el Contrato IApplicationDbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");

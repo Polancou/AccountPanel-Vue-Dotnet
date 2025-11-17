@@ -84,4 +84,61 @@ public class AuthController(IAuthService authService) : ControllerBase
         // Devuelve el token de acceso y el refresh token
         return Ok(tokenResponse);
     }
+
+    /// <summary>
+    /// Endpoint para verificar el email de un usuario.
+    /// </summary>
+    /// <param name="token">El token enviado al email del usuario.</param>
+    /// <returns>
+    /// Un resultado 200 OK si el token es válido.
+    /// Un resultado 400 Bad Request si el token no es válido.
+    [HttpGet("verify-email")] 
+    public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+    {
+        // Se delega la lógica de verificación de email al servicio de autenticación
+        var result = await authService.VerifyEmailAsync(token);
+        // Si el servicio indica que la operación no fue exitosa, se devuelve un error.
+        if (!result.Success) return BadRequest(new { message = result.Message });
+        // Si el registro fue exitoso, se devuelve una respuesta afirmativa.
+        return Ok(new { message = result.Message });
+    }
+    
+    /// <summary>
+    /// Endpoint para restablecer la contraseña de un usuario.
+    /// </summary>
+    /// <param name="dto">El DTO con el token y la nueva contraseña.</param>
+    /// <returns>
+    /// Un resultado 200 OK si la operación fue exitosa.
+    /// Un resultado 400 Bad Request si el token no es válido o ha expirado.
+    /// Un resultado 404 Not Found si el usuario no existe.
+    /// </returns>
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        // Se delega la lógica de restablecimiento de contraseña al servicio de autenticación
+        var result = await authService.ResetPasswordAsync(dto);
+        // Si el servicio indica que la operación no fue exitosa, se devuelve un error.
+        if (!result.Success) return BadRequest(new { message = result.Message });
+        // Si el registro fue exitoso, se devuelve una respuesta afirmativa.
+        return Ok(new { message = result.Message });
+    }
+    
+    /// <summary>
+    /// Endpoint que inicia el proceso de restablecimiento de contraseña.
+    /// </summary>
+    /// <param name="email">El email del usuario que olvidó su contraseña.</param>
+    /// <returns>
+    /// Un resultado 200 OK si el proceso de restablecimiento fue iniciado correctamente.
+    /// Un resultado 400 Bad Request si el email no existe o no se pudo iniciar el proceso.
+    /// </returns>
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        // Se delega la lógica de restablecimiento de contraseña al servicio de autenticación
+        var result = await authService.ForgotPasswordAsync(dto.Email);
+        // Si el servicio indica que la operación no fue exitosa, se devuelve un error.
+        if (!result.Success) return BadRequest(new { message = result.Message });
+        // Si el registro fue exitoso, se devuelve una respuesta afirmativa.
+        return Ok(new { message = result.Message });
+    }
 }
