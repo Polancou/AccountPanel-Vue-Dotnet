@@ -73,7 +73,7 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     /// <param name="file">El archivo de imagen enviado como form-data.</param>
     /// <returns>Un 200 OK con la nueva URL del avatar.</returns>
     [HttpPost("avatar")]
-    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
+    public async Task<IActionResult> UploadAvatar(IFormFile file)
     {
         // Valida que se haya enviado un archivo
         if (file == null || file.Length == 0)
