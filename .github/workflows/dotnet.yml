@@ -16,7 +16,6 @@ jobs:
     name: Build & Test Frontend
     runs-on: ubuntu-latest
 
-    # Establece el directorio de trabajo para todos los comandos
     defaults:
       run:
         working-directory: ./client
@@ -28,21 +27,18 @@ jobs:
       - name: 2. Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' 
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
       - name: 3. Install Dependencies
         run: npm install
 
-      - name: 4. Run Linter 
+      - name: 4. Run Linter
         run: npm run lint
 
       - name: 5. Build Project
         run: npm run build
-
-   #   - name: 6. Run Unit Tests
-    #    run: npm run test:unit -- --run # Pasa el flag --run a vitest
 
   # ----------------------------------------------------
   # TRABAJO 2: Compilar y Probar el Backend (.NET)
@@ -51,8 +47,6 @@ jobs:
     name: Build & Test Backend
     runs-on: ubuntu-latest
 
-    # 2. Inicia un servicio de SQL Edge
-    # Esto inicia un contenedor de Docker junto a tu trabajo
     services:
       sql-edge:
         image: mcr.microsoft.com/azure-sql-edge:latest
@@ -60,10 +54,9 @@ jobs:
           - 1433:1433
         env:
           ACCEPT_EULA: 'Y'
-          SA_PASSWORD: ${{ secrets.DB_TEST_PASSWORD }}
-        # Esta opción espera hasta que la BD esté lista para aceptar conexiones
+          SA_PASSWORD: "YourStrong!Passw0rd"
         options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${{ secrets.DB_TEST_PASSWORD }}' -Q 'SELECT 1' || exit 1"
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Passw0rd' -Q 'SELECT 1' || exit 1"
           --health-interval 10s
           --health-retries 10
           --health-start-period 30s
@@ -76,7 +69,7 @@ jobs:
       - name: 2. Setup .NET 9
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x' # Usa el SDK de .NET 9
+          dotnet-version: '9.0.x'
 
       - name: 3. Restore Dependencies
         run: dotnet restore AccountPanel/AccountPanel.sln
@@ -87,16 +80,8 @@ jobs:
       - name: 5. Run Tests (Unit & Integration)
         run: dotnet test AccountPanel/AccountPanel.sln --no-build --verbosity normal
         env:
-          # --- ¡IMPORTANTE! Provee los secretos que tu TestApiFactory necesita ---
-          
-          # 1. Secreto para la contraseña del servicio de BD
-          TestDb:Password: ${{ secrets.DB_TEST_PASSWORD }}
-          
-          # 2. Secreto para la cadena de conexión de prueba (apunta al servicio de Docker)
-          ConnectionStrings__TestConnection: "Server=localhost,1433;Database=master;User Id=sa;Password=${{ secrets.DB_TEST_PASSWORD }};TrustServerCertificate=True;"
-          
-          # 3. Otros secretos que tu app lee de IConfiguration (aunque estén mockeados)
-          # Es buena práctica proveerlos para que la app se construya.
+          ConnectionStrings__TestConnection: "Server=localhost,1433;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
+
           MailtrapSettings__Username: "test"
           MailtrapSettings__Password: "test"
           Authentication__Google__ClientId: "test"
