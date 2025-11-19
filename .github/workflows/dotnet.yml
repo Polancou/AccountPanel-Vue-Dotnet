@@ -1,52 +1,61 @@
-name: Build and Test
+name: PR Validation
 
-# 1. Disparadores (Triggers)
-# Se ejecuta en cada push a 'main' y en cada Pull Request que apunte a 'main'.
+# Se ejecuta solo cuando se abre o actualiza un PR hacia la rama 'main'
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
+    types: [opened, synchronize, reopened]
+
+# Cancelar ejecuciones anteriores si se suben nuevos cambios al mismo PR (ahorra recursos)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # ----------------------------------------------------
-  # TRABAJO 1: Compilar y Probar el Frontend (Vue.js)
-  # ----------------------------------------------------
-  build-and-test-frontend:
-    name: Build & Test Frontend
+  # ------------------------------------------------------------------
+  # JOB 1: Validación del Frontend (Vue 3 + Vite + TypeScript)
+  # ------------------------------------------------------------------
+  frontend-check:
+    name: 🟢 Frontend Check (Lint, Build & Test)
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: ./client
 
     steps:
-      - name: 1. Checkout Code
+      - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js
+      - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22' # Coincide con tu config local
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
-      - name: 3. Install Dependencies
-        run: npm install
+      - name: Instalar dependencias
+        run: npm ci # 'ci' es más rápido y seguro que 'install' para CI
 
-      - name: 4. Run Linter
+      - name: Verificar Tipado (Type Check)
+        # Ejecuta vue-tsc para asegurar que no hay errores de TypeScript
+        run: npm run type-check
+
+      - name: Linting (Calidad de código)
+        # Verifica reglas de ESLint y Prettier
         run: npm run lint
 
-      - name: 5. Build Project
-        run: npm run build
+      - name: Build de Prueba
+        # Asegura que el proyecto compila correctamente para producción
+        run: npm run build-only
 
-  # ----------------------------------------------------
-  # TRABAJO 2: Compilar y Probar el Backend (.NET)
-  # ----------------------------------------------------
-  build-and-test-backend:
-    name: Build & Test Backend
+  # ------------------------------------------------------------------
+  # JOB 2: Validación del Backend (.NET 9 + SQL Server)
+  # ------------------------------------------------------------------
+  backend-check:
+    name: 🔵 Backend Check (Build & Integration Tests)
     runs-on: ubuntu-latest
-
+    
+    # Servicio de Base de Datos para los Tests de Integración
     services:
       sql-edge:
         image: mcr.microsoft.com/azure-sql-edge:latest
@@ -63,31 +72,29 @@ jobs:
           --health-timeout 5s
 
     steps:
-      - name: 1. Checkout Code
+      - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: 2. Setup .NET 9
+      - name: Configurar .NET 9
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: 3. Restore Dependencies
+      - name: Restaurar Dependencias
         run: dotnet restore AccountPanel/AccountPanel.sln
 
-      - name: 4. Build Solution
-        run: dotnet build AccountPanel/AccountPanel.sln --no-restore
+      - name: Compilar (Build)
+        run: dotnet build AccountPanel/AccountPanel.sln --no-restore --configuration Release
 
-      - name: 5. Run Tests (Unit & Integration)
-        run: dotnet test AccountPanel/AccountPanel.sln --no-build --verbosity normal
+      - name: Ejecutar Tests (Unitarios e Integración)
+        # Ejecuta los tests conectándose al servicio 'sql-edge' definido arriba
+        run: dotnet test AccountPanel/AccountPanel.sln --no-build --configuration Release --verbosity normal
         env:
+          # Connection String para los tests de integración (apunta a localhost del runner)
           ConnectionStrings__TestConnection: "Server=localhost,1433;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
-
-          MailtrapSettings__Username: "test"
-          MailtrapSettings__Password: "test"
-          Authentication__Google__ClientId: "test"
-          Authentication__Google__ClientSecret: "test"
-          AppSettings__FrontendBaseUrl: "http://localhost:5173"
-          Jwt__Key: ${{ secrets.JWT_KEY }}
-          AutoMapper__Key: ${{ secrets.AUTOMAPPER_KEY }}
-          AdminUser__Email: "admin@test.com"
-          AdminUser__Password: "AdminPassword123!"
+          # Variables dummy para que los validadores no fallen al iniciar
+          Jwt__Key: "ESTA_ES_UNA_CLAVE_DUMMY_PARA_TESTS_CI_PIPELINE_32_CHARS"
+          Authentication__Google__ClientId: "dummy_client_id"
+          Authentication__Google__ClientSecret: "dummy_client_secret"
+          MailtrapSettings__Username: "dummy"
+          MailtrapSettings__Password: "dummy"
