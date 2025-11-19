@@ -1,10 +1,47 @@
------
-
 # 🧩 AccountPanel: Aplicación Full-Stack de Panel de Cuentas
 
-Un proyecto full-stack. Combina un backend en **.NET 9** con **Arquitectura Limpia** y un frontend **SPA (Single Page Application)** reactivo construido con **Vue.js 3**, **TypeScript** y **Tailwind CSS**.
+Un proyecto full-stack que combina un backend en **.NET 9** con **Arquitectura Limpia** y un frontend **SPA (Single Page Application)** reactivo construido con **Vue.js 3**, **TypeScript** y **Tailwind CSS**.
 
-Este proyecto ha sido refactorizado para usar **SQL Server (Azure SQL Edge)** en lugar de SQLite, e incluye un flujo de autenticación completo con verificación de email, reseteo de contraseña, y un robusto panel de administrador con capacidades CRUD.
+Este proyecto incluye un flujo de autenticación completo con verificación de email, reseteo de contraseña, y un robusto panel de administrador con capacidades CRUD.
+
+> **Novedad:** El proyecto ahora está totalmente **Dockerizado**. Puedes levantar toda la infraestructura (Backend, Frontend y Base de Datos) con un solo comando.
+
+---
+
+## 🐳 Ejecución Rápida con Docker Compose (Recomendado)
+
+Esta es la forma más sencilla de levantar todo el entorno sin instalar dependencias locales (excepto Docker).
+
+### 1. Prerrequisitos
+- **Docker Desktop** instalado y ejecutándose.
+
+### 2. Configuración de Entorno
+El proyecto utiliza un archivo `.env` en la raíz para manejar secretos de forma segura en los contenedores.
+
+1.  Copia el archivo de plantilla:
+    ```bash
+    cp .env.example .env
+    ```
+2.  Abre el archivo `.env` y establece tus credenciales.
+    * **Importante:** Debes definir una contraseña fuerte para `SA_PASSWORD` o SQL Server no iniciará.
+    * Configura tus credenciales de Google y Mailtrap si deseas probar esas funcionalidades.
+
+### 3. Levantar la Aplicación
+Desde la raíz del proyecto, ejecuta:
+
+```bash
+docker-compose up --build
+````
+
+Una vez que los contenedores estén listos, podrás acceder a:
+
+- **Frontend:** [http://localhost:5173](https://www.google.com/search?q=http://localhost:5173)
+- **Backend API (Swagger):** [http://localhost:5272/swagger](https://www.google.com/search?q=http://localhost:5272/swagger)
+- **Base de Datos:** `localhost:1433`
+
+### 4\. Base de Datos (Primera Ejecución)
+
+Si es la primera vez que levantas el proyecto, la base de datos estará vacía. Las migraciones se aplicarán automáticamente al iniciar el contenedor de la API gracias a la configuración en `Program.cs`.
 
 -----
 
@@ -15,166 +52,127 @@ Este proyecto ha sido refactorizado para usar **SQL Server (Azure SQL Edge)** en
 - **.NET 9** (C\# 13)
 - **Arquitectura Limpia (Clean Architecture)**: Separación estricta de responsabilidades (`Domain`, `Application`, `Infrastructure`, `Api`).
 - **API RESTful** con versionado (`Asp.Versioning`).
-- **Entity Framework Core 9** con **SQL Server** como proveedor de base de datos de producción.
-- **Control de Concurrencia Optimista** con `[Timestamp]` (`RowVersion`) para prevenir conflictos de edición simultánea.
+- **Entity Framework Core 9** con **SQL Server** como proveedor de base de datos.
+- **Control de Concurrencia Optimista** con `[Timestamp]` (`RowVersion`).
 - **Autenticación JWT Avanzada** con **Refresh Tokens** y rotación de tokens.
 - **Flujo de Autenticación Completo** con **verificación de email** y **reseteo de contraseña** usando plantillas HTML.
-- **Servicio de Email** con abstracción (`IEmailService`) e implementación para **MailKit (Mailtrap)**.
-- **Manejo de Excepciones Global** con middleware personalizado para respuestas de error limpias.
-- **CRUD de Administrador Completo** (Eliminar Usuario, Actualizar Rol) con validaciones de seguridad.
-- **Filtros de Búsqueda y Paginación** en el panel de admin usando `IQueryable` para eficiencia.
-- **Pruebas Unitarias** (`xUnit`, `Moq`) para la lógica de negocio.
-- **Pruebas de Integración de Alta Fidelidad** (`WebApplicationFactory`) que se ejecutan contra una base de datos SQL Server dedicada y se ejecutan secuencialmente usando **xUnit Collections**.
-- **Servicios Externos**: Login con Google (`Google.Apis.Auth`).
-- **Validación Avanzada** con `FluentValidation` (usada para todos los DTOs de entrada).
+- **Servicio de Email** con implementación para **MailKit (Mailtrap)**.
+- **Manejo de Excepciones Global** con middleware personalizado.
+- **CRUD de Administrador Completo** con filtros de búsqueda y paginación optimizada (`IQueryable`).
+- **Pruebas Unitarias** (`xUnit`, `Moq`).
+- **Pruebas de Integración** (`WebApplicationFactory`) contra una base de datos SQL real en contenedor.
+- **Validación Avanzada** con `FluentValidation`.
 
 ### 🖥️ **Frontend (Vue.js / TypeScript)**
 
-- **Vue.js 3** (con Composition API y `<script setup>`)
-- **Vite** como herramienta de construcción y servidor de desarrollo.
-- **TypeScript** para un tipado estático robusto.
-- **Inicio de sesión social con Google OAuth 2.0** (`vue3-google-login`).
-- **Rutas de Autenticación Completas** (Verificar Email, Olvidé mi contraseña, Restablecer contraseña).
-- **Vue Router** para enrutamiento del lado del cliente y guardias de navegación.
-- **Pinia** para la gestión de estado global.
-- **`pinia-plugin-persistedstate`** para persistir tokens (Access y Refresh) en `localStorage`.
-- **Tailwind CSS v4** con **`@tailwindcss/forms`** para inputs consistentes.
-- **Tema Oscuro (Dark Mode)** manual (con toggle) y automático (preferencia del SO) usando `useDark` de `@vueuse/core`.
-- **Animaciones y Transiciones** de página (`<Transition>`) y de UI (`transition-colors`).
+- **Vue.js 3** (Composition API y `<script setup>`)
+- **Vite** como herramienta de construcción.
+- **Docker Multi-stage build** con **Nginx** para producción.
+- **TypeScript** para tipado estático robusto.
+- **Google OAuth 2.0** (`vue3-google-login`).
+- **Pinia** para la gestión de estado global y persistencia (`pinia-plugin-persistedstate`).
+- **Tailwind CSS v4** con `@tailwindcss/forms`.
+- **Tema Oscuro (Dark Mode)** automático y manual.
 - **Servicio API centralizado** con **interceptores de Axios** (manejo automático de 401 y *refresh tokens*).
-- **CRUD de Administrador en Frontend** con filtros de búsqueda, *debounce* (`@vueuse/core`) y diálogos de confirmación (`vue-sonner`).
 
 -----
 
-## 🚀 Cómo Empezar
+## 🚀 Ejecución Manual (Desarrollo Local)
 
-Sigue estos pasos para configurar y ejecutar el proyecto completo localmente.
+Sigue estos pasos si prefieres ejecutar y depurar los servicios individualmente en tu máquina (sin Docker Compose).
 
 ### 🔧 Requisitos Previos
 
 - **.NET 9 SDK** o superior.
 - **Node.js** (versión 20+ recomendada).
-- **Docker Desktop**. El entorno de desarrollo depende de un contenedor de SQL Server.
-- (Opcional) Una cuenta de [Mailtrap.io](https://mailtrap.io/) para pruebas de email.
-
------
+- **Docker Desktop** (necesario para el contenedor de base de datos individual).
 
 ### 1️⃣ Clonar el Repositorio
 
 ```bash
-git clone https://github.com/polancou/AccountPanel-Vue-Dotnet.git
+git clone [https://github.com/polancou/AccountPanel-Vue-Dotnet.git](https://github.com/polancou/AccountPanel-Vue-Dotnet.git)
 cd AccountPanel-Vue-Dotnet
 ```
 
------
-
 ### 2️⃣ Configurar el Backend (.NET)
 
-#### 1\. Iniciar la Base de Datos (Docker)
+#### 1\. Iniciar la Base de Datos
 
-Abre tu terminal y ejecuta el siguiente comando para iniciar un contenedor de **Azure SQL Edge**. (Es la versión de SQL Server compatible con Mac M1/ARM64 y gratuita para desarrollo).
+Inicia un contenedor de **Azure SQL Edge** individualmente:
 
 ```bash
 docker run --cap-add SYS_PTRACE -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=TuPasswordFuerte!" \
    -p 1433:1433 --name sql-edge-dev \
-   -d mcr.microsoft.com/azure-sql-edge:latest
+   -d [mcr.microsoft.com/azure-sql-edge:latest](https://mcr.microsoft.com/azure-sql-edge:latest)
 ```
 
-**Nota:** Reemplaza `TuPasswordFuerte!` por una contraseña segura de tu elección.
+#### 2\. Configurar Secretos de Usuario (User Secrets)
 
-#### 2\. Configurar Secretos de Usuario
-
-Navega al proyecto de la API y configura tus `user-secrets`. **Debes** usar la misma contraseña que pusiste en el comando de Docker.
+Para evitar guardar credenciales en el código, el proyecto utiliza **User Secrets**. Ejecuta los siguientes comandos dentro de la carpeta `AccountPanel/AccountPanel.Api`:
 
 ```bash
 cd AccountPanel/AccountPanel.Api
 dotnet user-secrets init
 
-# Clave para la API (genera una clave larga y segura)
-dotnet user-secrets set "Jwt:Key" "UNA_CLAVE_SECRETA_MUY_LARGA_Y_SEGURA"
+# --- Credenciales del Sistema ---
+# Clave para firmar tokens (debe ser larga y segura)
+dotnet user-secrets set "Jwt:Key" "SUPER_SECRET_KEY_MIN_32_CHARS_LONG"
+# URL del frontend para enlaces en correos
+dotnet user-secrets set "AppSettings:FrontendBaseUrl" "http://localhost:5173"
+# (Opcional) Licencia de AutoMapper si aplica, o dejar vacío/dummy
+dotnet user-secrets set "AutoMapper:Key" "dummy"
 
-# Cadena de conexión de DESARROLLO (apunta a tu Docker)
+# --- Base de Datos ---
+# Cadena de conexión para desarrollo
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=accountpanel_db;User Id=sa;Password=TuPasswordFuerte!;TrustServerCertificate=True;"
-
-# Cadena de conexión de PRUEBAS (apunta a la BD 'master' en el mismo Docker)
+# Cadena de conexión para pruebas de integración
 dotnet user-secrets set "ConnectionStrings:TestConnection" "Server=localhost,1433;Database=master;User Id=sa;Password=TuPasswordFuerte!;TrustServerCertificate=True;"
 
-# Claves de Servicios Externos
-dotnet user-secrets set "AppSettings:FrontendBaseUrl" "http://localhost:5173"
-dotnet user-secrets set "Authentication:Google:ClientId" "TU_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com"
-dotnet user-secrets set "Authentication:Google:ClientSecret" "TU_CLIENT_SECRET_DE_GOOGLE"
+# --- Google OAuth ---
+dotnet user-secrets set "Authentication:Google:ClientId" "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+dotnet user-secrets set "Authentication:Google:ClientSecret" "TU_GOOGLE_CLIENT_SECRET"
+
+# --- Mailtrap (Email) ---
 dotnet user-secrets set "MailtrapSettings:Host" "smtp.mailtrap.io"
 dotnet user-secrets set "MailtrapSettings:Port" "587"
-dotnet user-secrets set "MailtrapSettings:Username" "TU_USERNAME_DE_MAILTRAP"
-dotnet user-secrets set "MailtrapSettings:Password" "TU_PASSWORD_DE_MAILTRAP"
+dotnet user-secrets set "MailtrapSettings:Username" "TU_MAILTRAP_USER"
+dotnet user-secrets set "MailtrapSettings:Password" "TU_MAILTRAP_PASS"
 dotnet user-secrets set "MailtrapSettings:FromEmail" "no-reply@tuapp.com"
 
-# Vuelve a la raíz del repositorio
 cd ../..
 ```
 
-#### 3\. Crear la Base de Datos de Desarrollo
-
-Entity Framework **no creará** la base de datos; solo las tablas. Debes crearla manualmente:
-
-```bash
-# 1. Crea la base de datos de DESARROLLO
-docker exec -it sql-edge-dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "TuPasswordFuerte!" -Q "CREATE DATABASE accountpanel_db;"
-```
-
-*(La base de datos de prueba, `accountpanel_db_test`, será creada y destruida automáticamente por la `TestApiFactory`).*
-
-#### 4\. Aplicar las Migraciones
-
-Una vez creada la base de datos, ejecuta las migraciones para crear las tablas en tu base de datos de **desarrollo** (`accountpanel_db`):
+#### 3\. Aplicar Migraciones
 
 ```bash
 dotnet ef database update --project AccountPanel/AccountPanel.Infrastructure/AccountPanel.Infrastructure.csproj --startup-project AccountPanel/AccountPanel.Api/AccountPanel.Api.csproj
 ```
 
------
-
 ### 3️⃣ Configurar el Frontend (Vue.js)
 
-Navega al directorio `client/`, instala las dependencias y crea tu archivo `.env`.
+Navega al directorio `client/`, instala las dependencias y crea tu archivo de entorno local.
 
 ```bash
 cd client
 npm install
 ```
 
-**Crea el archivo `client/.env`** con el siguiente contenido:
+Crea el archivo `client/.env` basado en `client/.env.example` y define la URL de tu API local (normalmente `http://localhost:5272/api`).
 
-```
-VITE_API_BASE_URL=http://localhost:5272/api
-VITE_UPLOADS_BASE_URL=http://localhost:5272
-VITE_GOOGLE_CLIENT_ID=TU_MISMO_CLIENT_ID_DE_GOOGLE.apps.googleusercontent.com
-```
+### 4️⃣ Ejecutar
 
------
-
-## 🏃‍♂️ Ejecución en Desarrollo
-
-Abre **dos terminales** en la raíz del repositorio.
-
-### 🧩 Terminal 1: Ejecutar el Backend
+**Terminal 1 (Backend):**
 
 ```bash
 dotnet run --project AccountPanel/AccountPanel.Api/AccountPanel.Api.csproj
 ```
 
-*(La API estará disponible en `http://localhost:5272` y se conectará a tu base de datos SQL Edge)*
-
-### 🧩 Terminal 2: Ejecutar el Frontend
+**Terminal 2 (Frontend):**
 
 ```bash
 cd client
 npm run dev
 ```
-
-*(La aplicación Vue estará disponible en `http://localhost:5173`)*
-
-Abre `http://localhost:5173` en tu navegador para usar la aplicación.
 
 -----
 
@@ -182,7 +180,7 @@ Abre `http://localhost:5173` en tu navegador para usar la aplicación.
 
 ### ✅ Backend
 
-Ejecuta todas las pruebas de xUnit (unitarias y de integración). **Nota:** Esto creará y destruirá automáticamente una base de datos de prueba única (ej. `accountpanel_test_...`) en tu contenedor Docker gracias a la `TestApiFactory`.
+Ejecuta todas las pruebas (unitarias e integración). Las pruebas de integración gestionarán automáticamente su propia base de datos en Docker.
 
 ```bash
 cd AccountPanel
@@ -195,5 +193,3 @@ dotnet test
 cd client
 npm run test:unit
 ```
-
------
