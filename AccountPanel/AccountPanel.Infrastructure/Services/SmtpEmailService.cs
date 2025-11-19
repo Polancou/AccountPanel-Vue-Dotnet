@@ -8,19 +8,20 @@ namespace AccountPanel.Infrastructure.Services;
 /// <summary>
 /// Clase auxiliar para leer la configuración
 /// </summary>
-public class MailtrapSettings
+public class SmtpSettings
 {
     public string Host { get; set; }
     public int Port { get; set; }
     public string Username { get; set; }
     public string Password { get; set; }
     public string FromEmail { get; set; }
+    public string FromName { get; set; }
 }
 
-public class MailtrapEmailService(IConfiguration configuration) : IEmailService
+public class SmtpEmailService(IConfiguration configuration) : IEmailService
 {
     // Configuración de Mailtrap
-    private readonly MailtrapSettings _settings = configuration.GetSection("MailtrapSettings").Get<MailtrapSettings>();
+    private readonly SmtpSettings _settings = configuration.GetSection("SmtpSettings").Get<SmtpSettings>();
     
     // Instancia del cliente SMTP
     public async Task SendVerificationEmailAsync(string toEmail, string userName, string verificationLink)
@@ -55,15 +56,16 @@ public class MailtrapEmailService(IConfiguration configuration) : IEmailService
     private async Task SendEmailInternalAsync(string toEmail, string subject, string htmlBody)
     {
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("AccountPanel App", _settings.FromEmail));
+        // Usamos la configuración genérica
+        message.From.Add(new MailboxAddress(_settings.FromName ?? "AccountPanel", _settings.FromEmail));
         message.To.Add(new MailboxAddress(toEmail, toEmail));
         message.Subject = subject;
         message.Body = new TextPart("html") { Text = htmlBody };
 
         using var client = new SmtpClient();
-        
         try
         {
+            // Conexión agnóstica (funciona para Mailtrap y AWS SES)
             await client.ConnectAsync(_settings.Host, _settings.Port, MailKit.Security.SecureSocketOptions.StartTls);
             await client.AuthenticateAsync(_settings.Username, _settings.Password);
             await client.SendAsync(message);
