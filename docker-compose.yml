@@ -1,0 +1,80 @@
+services:
+  # ---------------------------------------
+  # Base de Datos (SQL Server / Azure Edge)
+  # ---------------------------------------
+  db:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: accountpanel-db
+    user: "root"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=TuPasswordFuerte!123 # ¡Cambia esto!
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql/data
+    networks:
+      - app-network
+
+  # ---------------------------------------
+  # Backend (.NET API)
+  # ---------------------------------------
+  api:
+    build:
+      context: ./AccountPanel
+      dockerfile: Dockerfile
+    container_name: accountpanel-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # Cadena de conexión apuntando al servicio 'db' en lugar de localhost
+      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=accountpanel_db;User Id=sa;Password=TuPasswordFuerte!123;TrustServerCertificate=True;
+      # Configuración JWT (debe coincidir con secrets o ser inyectada)
+      - Jwt__Key=ESTA_ES_UNA_CLAVE_SECRETA_MUY_LARGA_PARA_DOCKER
+      - Jwt__Issuer=http://localhost:5272
+      # Configuración AppSettings
+      - AppSettings__FrontendBaseUrl=http://localhost:5173
+      # Configuración Google/Mailtrap (Rellenar con valores reales o secretos)
+      - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:-change_me}
+      - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:-change_me}
+      - MailtrapSettings__Host=smtp.mailtrap.io
+      - MailtrapSettings__Port=587
+      - MailtrapSettings__Username=${MAILTRAP_USER:-change_me}
+      - MailtrapSettings__Password=${MAILTRAP_PASS:-change_me}
+      - MailtrapSettings__FromEmail=no-reply@accountpanel.com
+    ports:
+      - "5272:8080" # Mapeamos el puerto interno 8080 al 5272 de tu máquina
+    volumes:
+      # Persistencia para avatares subidos
+      - uploads_data:/app/wwwroot/uploads
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  # ---------------------------------------
+  # Frontend (Vue + Nginx)
+  # ---------------------------------------
+  web:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        # Estas variables se 'cocinan' en el HTML/JS al momento del build
+        - VITE_API_BASE_URL=http://localhost:5272/api
+        - VITE_UPLOADS_BASE_URL=http://localhost:5272
+        - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-change_me}
+    container_name: accountpanel-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+volumes:
+  sql_data:
+  uploads_data:
+
+networks:
+  app-network:
+    driver: bridge
