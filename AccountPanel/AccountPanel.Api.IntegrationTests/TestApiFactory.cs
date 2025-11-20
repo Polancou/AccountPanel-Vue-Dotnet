@@ -80,6 +80,8 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseContentRoot(Directory.GetCurrentDirectory());
+        builder.UseWebRoot(Directory.GetCurrentDirectory());
         builder.ConfigureTestServices(services =>
         {
             // --- 1. Reemplazar la Base de Datos ---
