@@ -34,7 +34,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - name: Instalar dependencias
-        run: npm ci # 'ci' es más rápido y seguro que 'install' para CI
+        run: npm install # 'ci' es más rápido y seguro que 'install' para CI
 
       - name: Verificar Tipado (Type Check)
         # Ejecuta vue-tsc para asegurar que no hay errores de TypeScript
