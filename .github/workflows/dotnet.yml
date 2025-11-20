@@ -93,7 +93,7 @@ jobs:
           # Connection String para los tests de integración (apunta a localhost del runner)
           ConnectionStrings__TestConnection: "Server=localhost,1433;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
           # Variables dummy para que los validadores no fallen al iniciar
-          Jwt__Key: "ESTA_ES_UNA_CLAVE_DUMMY_MUY_LARGA_PARA_CUMPLIR_CON_LOS_REQUISITOS_DE_HMAC_SHA512_EN_LOS_TESTS"
+          Jwt__Key: "WtD5LhJ7pQzR4gB9tVcYx2mF8nPqK6sVbCdEwXyZaBcGdEfGhIjKlMnOpQrSt"
           Authentication__Google__ClientId: "dummy_client_id"
           Authentication__Google__ClientSecret: "dummy_client_secret"
           MailtrapSettings__Username: "dummy"
