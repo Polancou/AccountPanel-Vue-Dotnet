@@ -90,4 +90,6 @@ export interface AdminUserQueryParams {
 
 export interface ApiErrorResponse {
   message: string;
+  statusCode: number;
+  traceId: string;
 }

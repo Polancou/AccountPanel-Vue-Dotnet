@@ -1,23 +1,19 @@
 <script setup lang="ts" generic="T extends { id: any }">
-import LoadingSpinner from '../LoadingSpinner.vue';
+import BaseSkeleton from './BaseSkeleton.vue';
 
 // --- 1. DEFINIR PROPS ---
-// Usamos genéricos (<T>) para que el componente acepte cualquier tipo de array,
-// siempre que cada objeto tenga una propiedad 'id' para el :key.
-
-// 'columns' es una matriz de objetos que definen las columnas de la tabla.
 export interface TableColumn {
-  label: string // Título de la columna
-  key: string // Clave de la columna
-  sortable?: boolean // Indica si la columna es ordenable
-  width?: string // Ancho de la columna
+  label: string
+  key: string
+  sortable?: boolean
+  width?: string
 }
 
-// --- 2. DEFINIR COMPONENTE ---
 defineProps<{
-  columns: TableColumn[] // Propiedad que define las columnas de la tabla
-  items: T[] // Propiedad que define los datos de la tabla
-  isLoading?: boolean // Propiedad que indica si se está cargando los datos
+  columns: TableColumn[]
+  items: T[]
+  isLoading?: boolean
+  filterActive?: boolean
 }>()
 </script>
 
@@ -26,36 +22,48 @@ defineProps<{
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-700">
-          <tr>
-            <th v-for="col in columns" :key="col.key" scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              {{ col.label }}
-            </th>
-          </tr>
+        <tr>
+          <th v-for="col in columns" :key="col.key" scope="col"
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+              :style="{ width: col.width }">
+            {{ col.label }}
+          </th>
+        </tr>
         </thead>
         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          <tr v-if="isLoading">
-            <td :colspan="columns.length" class="p-4 text-center text-gray-500">
-              <LoadingSpinner />
+
+        <template v-if="isLoading">
+          <tr v-for="i in 5" :key="i">
+            <td v-for="col in columns" :key="col.key" class="px-6 py-4 whitespace-nowrap">
+              <BaseSkeleton height="1.25rem" />
             </td>
           </tr>
-          <tr v-else-if="!items || items.length === 0">
-            <td :colspan="columns.length" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              No se encontraron resultados.
-            </td>
-          </tr>
-          <tr v-else v-for="item in items" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
-            <td v-for="col in columns" :key="col.key" class="px-6 py-4 whitespace-nowrap text-sm">
-              <slot :name="`col-${col.key}`" :item="item">
+        </template>
+
+        <tr v-else-if="!items || items.length === 0">
+          <td :colspan="columns.length" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+            <div class="flex flex-col items-center justify-center space-y-2">
+              <span class="text-2xl">🔍</span>
+              <p v-if="filterActive">No se encontraron resultados para tu búsqueda.</p>
+              <p v-else>Aún no hay datos registrados.</p>
+            </div>
+          </td>
+        </tr>
+
+        <tr v-else v-for="item in items" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
+          <td v-for="col in columns" :key="col.key" class="px-6 py-4 whitespace-nowrap text-sm">
+            <slot :name="`col-${col.key}`" :item="item">
                 <span class="text-gray-900 dark:text-gray-100">
                   {{ item[col.key as keyof T] }}
                 </span>
-              </slot>
-            </td>
-          </tr>
+            </slot>
+          </td>
+        </tr>
+
         </tbody>
       </table>
     </div>
   </div>
 </template>
+
 <style scoped></style>

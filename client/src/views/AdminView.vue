@@ -1,14 +1,9 @@
 <script setup lang="ts">
 // --- Imports ---
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/services/api';
-import type {
-  PagedResultDto,
-  PerfilUsuarioDto,
-  ActualizarRolUsuarioDto,
-  AdminUserQueryParams, ApiErrorResponse
-} from '@/types/dto';
+import type { PagedResultDto, PerfilUsuarioDto, ActualizarRolUsuarioDto } from '@/types/dto';
 import BaseTable from '@/components/common/BaseTable.vue'
 import type { TableColumn } from '@/components/common/BaseTable.vue'
 import BasePagination from '@/components/common/BasePagination.vue'
@@ -32,6 +27,9 @@ const pageSize = 10
 const searchTerm = ref('') // Conectado al <input> de búsqueda
 const selectedRole = ref<string | number>('') // Conectado al <select> de rol
 
+// Propiedad computada para saber si hay filtros activos (para el feedback visual de la tabla)
+const filterActive = computed(() => searchTerm.value !== '' || selectedRole.value !== '')
+
 // --- Configuración de la Tabla ---
 const columns: TableColumn[] = [
   { key: 'nombreCompleto', label: 'Nombre' },
@@ -43,6 +41,14 @@ const columns: TableColumn[] = [
 
 // --- Lógica de Carga de Datos ---
 
+// Definimos la interfaz para los parámetros de búsqueda
+interface AdminUserQueryParams {
+  pageNumber: number;
+  pageSize: number;
+  searchTerm?: string;
+  rol?: string | number;
+}
+
 /**
  * Función principal para cargar los usuarios desde la API.
  */
@@ -50,7 +56,7 @@ const loadUsers = async () => {
   isLoading.value = true
   error.value = null
 
-  // Construye los parámetros de la API dinámicamente
+  // Construye los parámetros de la API de forma tipada
   const params: AdminUserQueryParams = {
     pageNumber: currentPage.value,
     pageSize: pageSize
@@ -69,7 +75,7 @@ const loadUsers = async () => {
     users.value = response.data.items
     totalPages.value = response.data.totalPages
   } catch (err: unknown) {
-    const axiosError = err as AxiosError<ApiErrorResponse>;
+    const axiosError = err as AxiosError<{ message: string }>;
     error.value = axiosError.response?.data?.message || 'No se pudieron cargar los usuarios.'
   } finally {
     isLoading.value = false
@@ -133,10 +139,8 @@ const handleDeleteUser = async (id: number) => {
     toast.success("Usuario eliminado correctamente.");
     // Actualiza la UI filtrando el usuario eliminado
     users.value = users.value.filter(user => user.id !== id);
-    // Opcional: recargar si el conteo de paginación es importante
-    // await loadUsers();
   } catch (err: unknown) {
-    const axiosError = err as AxiosError<ApiErrorResponse>;
+    const axiosError = err as AxiosError<{ message: string }>;
     const message = axiosError.response?.data?.message || 'No se pudo eliminar el usuario.';
     toast.error(message);
     error.value = message;
@@ -188,7 +192,7 @@ const handleUpdateRole = async (id: number, newRole: string) => {
     }
 
   } catch (err: unknown) {
-    const axiosError = err as AxiosError<ApiErrorResponse>;
+    const axiosError = err as AxiosError<{ message: string }>;
     const message = axiosError.response?.data?.message || 'No se pudo actualizar el rol.';
     toast.error(message);
     error.value = message;
@@ -218,7 +222,7 @@ const formatDate = (dateString: string) => {
         <label for="searchTerm" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Buscar
           usuario</label>
         <input id="searchTerm" name="searchTerm" type="text" placeholder="Buscar por nombre o email..."
-          v-model="searchTerm" class="input-field" />
+               v-model="searchTerm" class="input-field" />
       </div>
 
       <div>
@@ -233,13 +237,13 @@ const formatDate = (dateString: string) => {
     </div>
 
     <div v-if="error"
-      class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded dark:bg-red-900 dark:border-red-700 dark:text-red-300 mb-4"
-      role="alert">
+         class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded dark:bg-red-900 dark:border-red-700 dark:text-red-300 mb-4"
+         role="alert">
       <strong class="font-bold">Error:</strong>
       <span>{{ error }}</span>
     </div>
 
-    <BaseTable :columns="columns" :items="users" :isLoading="isLoading">
+    <BaseTable :columns="columns" :items="users" :isLoading="isLoading" :filter-active="filterActive">
 
       <template #col-rol="{ item }">
         <span :class="[
@@ -272,7 +276,7 @@ const formatDate = (dateString: string) => {
     </BaseTable>
 
     <BasePagination v-if="!isLoading && totalPages > 1" :currentPage="currentPage" :totalPages="totalPages"
-      @page-changed="handlePageChange" />
+                    @page-changed="handlePageChange" />
   </div>
 </template>
 

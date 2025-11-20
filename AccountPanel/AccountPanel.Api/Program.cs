@@ -90,7 +90,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddFixedWindowLimiter("GlobalPolicy", opt =>
     {
         opt.Window = TimeSpan.FromSeconds(60);
-        opt.PermitLimit = 100;
+        opt.PermitLimit = 1000;
         opt.QueueLimit = 2;
     });
 });
@@ -171,13 +171,12 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
                        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
-app.UseRateLimiter();
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers()
-    .RequireRateLimiting("GlobalPolicy");
+app.MapControllers();
 
 // --- 6. ARRANQUE DE LA APLICACIÓN ---
 try

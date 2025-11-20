@@ -1,18 +1,13 @@
-// Importaciones de Vue y Pinia
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-// Importaciones para llamadas a API y enrutamiento
 import apiClient from '@/services/api';
 import { useRouter } from 'vue-router'
-// Importaciones para DTO
 import type {
   LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto,
   CambiarPasswordDto, JwtPayload, TokenResponseDto, ForgotPasswordDto, ResetPasswordDto,
   GoogleCredentialResponse, ApiErrorResponse
 } from "@/types/dto.ts"
-// Importación de Toast de Vue Sonner
 import { toast } from 'vue-sonner'
-// Importación de jwtDecode para decodificar el token
 import { jwtDecode } from 'jwt-decode'
 import type { AxiosError } from 'axios';
 
@@ -421,12 +416,31 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function checkAuthOnStart(): Promise<void>{
+    if (!token.value) return
+
+    try {
+      const decoded = jwtDecode<JwtPayload>(token.value)
+      const currentTime = Date.now() / 1000
+      // Si el token ha expirado
+      if (decoded.exp < currentTime +10){
+        console.log("Token expirado al inicio, intentando refrescar...")
+        const sucess = await refreshAccessToken()
+        if (!sucess) logoutLocally()
+      }
+    }
+    catch (error) {
+      console.error("Error al verificar token al inicio:", error);
+      logoutLocally()
+    }
+  }
+
   return {
     // Exporta las props
     token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin, refreshToken,
     // Exporta los actions
     login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar,
-    refreshAccessToken, handleGoogleLogin, forgotPassword, resetPassword
+    refreshAccessToken, handleGoogleLogin, forgotPassword, resetPassword, checkAuthOnStart
   }
 },
   {
