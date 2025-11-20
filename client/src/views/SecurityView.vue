@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { Form } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+import type {CambiarPasswordDto} from "@/types/dto.ts";
 
 const authStore = useAuthStore()
 
@@ -31,10 +32,12 @@ const passwordSchema = toTypedSchema(
 
 // Función para manejar el envío
 // 'resetForm' es una función que VeeValidate nos da
-const handleChangePassword = async (values: any, { resetForm }: any) => {
-  const success = await authStore.changePassword(values);
+const handleChangePassword = async (values: Record<string, unknown>, { resetForm }: { resetForm: () => void }) => {
+  const passwordData = values as unknown as CambiarPasswordDto;
+  const success = await authStore.changePassword(passwordData);
   if (success) {
-    resetForm(); // Limpia el formulario si la actualización fue exitosa
+    // Limpia el formulario si la actualización fue exitosa
+    resetForm();
   }
 }
 </script>

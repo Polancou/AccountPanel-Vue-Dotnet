@@ -3,13 +3,19 @@
 import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/services/api';
-import type { PagedResultDto, PerfilUsuarioDto, ActualizarRolUsuarioDto } from '@/types/dto';
+import type {
+  PagedResultDto,
+  PerfilUsuarioDto,
+  ActualizarRolUsuarioDto,
+  AdminUserQueryParams, ApiErrorResponse
+} from '@/types/dto';
 import BaseTable from '@/components/common/BaseTable.vue'
 import type { TableColumn } from '@/components/common/BaseTable.vue'
 import BasePagination from '@/components/common/BasePagination.vue'
 import BaseButton from '@/components/common/BaseButton.vue';
 import { toast } from 'vue-sonner'
 import { useDebounceFn } from '@vueuse/core'
+import type { AxiosError } from 'axios';
 
 // --- Store ---
 const authStore = useAuthStore()
@@ -45,13 +51,15 @@ const loadUsers = async () => {
   error.value = null
 
   // Construye los parámetros de la API dinámicamente
-  const params: any = {
+  const params: AdminUserQueryParams = {
     pageNumber: currentPage.value,
     pageSize: pageSize
   };
+
   if (searchTerm.value) {
     params.searchTerm = searchTerm.value;
   }
+  // El select tiene value="" para 'Todos', así que validamos que no sea string vacío
   if (selectedRole.value !== '') {
     params.rol = selectedRole.value;
   }
@@ -60,8 +68,9 @@ const loadUsers = async () => {
     const response = await apiClient.get<PagedResultDto<PerfilUsuarioDto>>('/v1/admin/users', { params });
     users.value = response.data.items
     totalPages.value = response.data.totalPages
-  } catch (err: any) {
-    error.value = err.response?.data?.message || 'No se pudieron cargar los usuarios.'
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError<ApiErrorResponse>;
+    error.value = axiosError.response?.data?.message || 'No se pudieron cargar los usuarios.'
   } finally {
     isLoading.value = false
   }
@@ -126,8 +135,9 @@ const handleDeleteUser = async (id: number) => {
     users.value = users.value.filter(user => user.id !== id);
     // Opcional: recargar si el conteo de paginación es importante
     // await loadUsers();
-  } catch (err: any) {
-    const message = err.response?.data?.message || 'No se pudo eliminar el usuario.';
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError<ApiErrorResponse>;
+    const message = axiosError.response?.data?.message || 'No se pudo eliminar el usuario.';
     toast.error(message);
     error.value = message;
   } finally {
@@ -177,8 +187,9 @@ const handleUpdateRole = async (id: number, newRole: string) => {
       user.rol = newRole;
     }
 
-  } catch (err: any) {
-    const message = err.response?.data?.message || 'No se pudo actualizar el rol.';
+  } catch (err: unknown) {
+    const axiosError = err as AxiosError<ApiErrorResponse>;
+    const message = axiosError.response?.data?.message || 'No se pudo actualizar el rol.';
     toast.error(message);
     error.value = message;
   } finally {

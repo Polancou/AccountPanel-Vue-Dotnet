@@ -8,6 +8,7 @@ import { Form } from 'vee-validate'
 import { z } from 'zod'
 import { toTypedSchema } from '@vee-validate/zod'
 import { GoogleLogin } from 'vue3-google-login'
+import type {LoginUsuarioDto} from "@/types/dto.ts";
 
 // Accedemos al store de autenticación
 const authStore = useAuthStore()
@@ -26,9 +27,10 @@ const loginSchema = toTypedSchema(
 /**
  * Función para manejar el inicio de sesión
  */
-const handleLogin = async (values: any) => {
+const handleLogin = async (values: Record<string, unknown>) => {
   console.log("Intentando procesar inciar sesion")
-  await authStore.login(values)
+  const credentials = values as unknown as LoginUsuarioDto;
+  await authStore.login(credentials)
   console.log("Proceso de inicio de sesion finalizado")
 }
 
@@ -56,7 +58,7 @@ const goToRegister = () => {
         <span class="text-gray-500 text-sm dark:text-gray-400">o</span>
         <span class="h-px bg-gray-300 w-full"></span>
       </div>
-      <Form @submit="handleLogin" :validation-schema="loginSchema" v-slot="{ meta }" class="space-y-6">
+      <Form @submit="handleLogin" :validation-schema="loginSchema" class="space-y-6">
         <BaseInput label="Email" id="email" name="email" type="email" placeholder="Ingresar correo electrónico" />
         <BaseInput label="Contraseña" id="password" name="password" type="password" placeholder="Ingresar contraseña" />
         <div class="text-sm text-right">

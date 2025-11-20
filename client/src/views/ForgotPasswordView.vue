@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { Form } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+import type { ForgotPasswordDto } from '@/types/dto';
 
 // Store y Router
 const authStore = useAuthStore()
@@ -28,9 +29,10 @@ const emailSchema = toTypedSchema(
 /**
  * Maneja el envío del formulario
  */
-const handleSubmit = async (values: any) => {
+const handleSubmit = async (values: Record<string, unknown>) => {
     successMessage.value = null
-    const success = await authStore.forgotPassword(values);
+  const dto = values as unknown as ForgotPasswordDto;
+    const success = await authStore.forgotPassword(dto);
 
     if (success) {
         // Mostramos el mensaje de éxito que viene del backend

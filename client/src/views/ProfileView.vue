@@ -7,6 +7,7 @@ import BaseButton from '@/components/common/BaseButton.vue';
 import { Form } from 'vee-validate';
 import { z } from 'zod';
 import { toTypedSchema } from '@vee-validate/zod';
+import type { ActualizarPerfilDto } from '@/types/dto';
 
 // Obtenemos la instancia de la auth store.
 const authStore = useAuthStore();
@@ -67,7 +68,7 @@ onMounted(async () => {
 /**
  * Función para habilitar el modo de edición del perfil.
  */
-const enableEditing = (values: any) => {
+const enableEditing = () => {
   if (authStore.userProfile) {
     // Inicializa los datos editables con los datos actuales del perfil
     editableProfile.value.nombreCompleto = authStore.userProfile.nombreCompleto;
@@ -79,11 +80,12 @@ const enableEditing = (values: any) => {
 /**
  * Función para manejar el guardado de los cambios en el perfil.
  */
-const handleSaveChanges = async (values: any) => {
+const handleSaveChanges = async (values: Record<string, unknown>) => {
   // Seguridad adicional: solo se puede guardar si el perfil está cargado
   if (!authStore.userProfile) return
   // Guardamos los cambios en el estado local
-  await authStore.updateProfile(values)
+  const profileData = values as unknown as ActualizarPerfilDto;
+  await authStore.updateProfile(profileData)
   // Salimos del modo de edición
   isEditing.value = false
 };
@@ -216,8 +218,7 @@ const profileImageUrl = computed(() => {
         </div>
         <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
           <div class="px-4 py-5 sm:px-6">
-            <Form @submit="handleSaveChanges" :validation-schema="updateProfileSchema" :initial-values="editableProfile"
-              v-slot="{ meta }" class="space-y-4">
+            <Form @submit="handleSaveChanges" :validation-schema="updateProfileSchema" :initial-values="editableProfile" class="space-y-4">
               <BaseInput name="nombreCompleto" label="Nombre Completo" id="editNombreCompleto" type="text" required />
               <BaseInput name="numeroTelefono" label="Número de Teléfono" id="editNumeroTelefono" type="tel" required />
 

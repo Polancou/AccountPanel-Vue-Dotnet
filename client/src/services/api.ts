@@ -1,6 +1,6 @@
-import axios from 'axios';
-import { useAuthStore } from '@/stores/auth';
-import { toast } from 'vue-sonner';
+import axios, {type AxiosError, type InternalAxiosRequestConfig} from 'axios';
+import {useAuthStore} from '@/stores/auth';
+import {toast} from 'vue-sonner';
 import router from '@/router';
 
 // Crear instancia de Axios
@@ -10,15 +10,15 @@ const apiClient = axios.create({
 
 // Interceptor de Petición (Request)
 apiClient.interceptors.request.use((config) => {
-  const authStore = useAuthStore();
-  const token = authStore.token; // Access Token
+    const authStore = useAuthStore();
+    const token = authStore.token; // Access Token
 
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  return config;
-},
-  (error) => {
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: AxiosError) => {
     return Promise.reject(error);
   }
 );
@@ -26,9 +26,11 @@ apiClient.interceptors.request.use((config) => {
 // Variable para prevenir bucles de refresh
 let isRefreshing = false;
 // Cola para peticiones fallidas mientras se refresca el token
-let failedQueue: Array<{ resolve: (value: unknown) => void, reject: (reason?: any) => void }> = [];
-
-const processQueue = (error: any, token: string | null = null) => {
+let failedQueue: Array<{
+  resolve: (value: unknown) => void,
+  reject: (reason?: unknown) => void
+}> = [];
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error);
@@ -45,14 +47,14 @@ apiClient.interceptors.response.use(
     // Si la respuesta es exitosa, solo la devolvemos
     return response;
   },
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    // Casting para acceder a propiedades internas de config si es necesario
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const authStore = useAuthStore();
-
     // Si la petición que falló (con 401) era la de REFRESH,
     // significa que el refresh token es inválido. No hay nada que hacer.
     // Cerramos sesión y rechazamos la promesa para detener el bucle.
-    if (originalRequest.url.endsWith('/v1/auth/refresh')) {
+    if (originalRequest && originalRequest.url?.endsWith('/v1/auth/refresh')) {
       authStore.logout(); // Cierra la sesión
       // Notificamos al usuario
       if (router.currentRoute.value.name !== 'login') {
@@ -64,12 +66,11 @@ apiClient.interceptors.response.use(
 
 
     // Si el error es 401 (Token Expirado) en CUALQUIER OTRA RUTA
-    if (error.response.status === 401 && !originalRequest._retry) {
-
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       // Si ya se está refrescando, ponemos la petición en cola
       if (isRefreshing) {
         return new Promise(function (resolve, reject) {
-          failedQueue.push({ resolve, reject });
+          failedQueue.push({resolve, reject});
         }).then(token => {
           originalRequest.headers['Authorization'] = 'Bearer ' + token;
           return apiClient(originalRequest);
