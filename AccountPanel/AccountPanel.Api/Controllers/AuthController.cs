@@ -2,6 +2,7 @@ using Asp.Versioning;
 using AccountPanel.Application.DTOs;
 using AccountPanel.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AccountPanel.Api.Controllers;
 
@@ -14,6 +15,7 @@ namespace AccountPanel.Api.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [ApiVersion("1.0")]
+[EnableRateLimiting("AuthPolicy")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
     /// <summary>

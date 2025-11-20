@@ -24,7 +24,7 @@ El proyecto utiliza un archivo `.env` en la raíz para manejar secretos de forma
     ```
 2.  Abre el archivo `.env` y establece tus credenciales.
     * **Importante:** Debes definir una contraseña fuerte para `SA_PASSWORD` o SQL Server no iniciará.
-    * Configura tus credenciales de Google y Mailtrap si deseas probar esas funcionalidades.
+    * Configura tus credenciales de Google y SMTP (Gmail, Mailtrap, AWS) si deseas probar esas funcionalidades.
 
 ### 3. Levantar la Aplicación
 Desde la raíz del proyecto, ejecuta:
@@ -56,7 +56,7 @@ Si es la primera vez que levantas el proyecto, la base de datos estará vacía. 
 - **Control de Concurrencia Optimista** con `[Timestamp]` (`RowVersion`).
 - **Autenticación JWT Avanzada** con **Refresh Tokens** y rotación de tokens.
 - **Flujo de Autenticación Completo** con **verificación de email** y **reseteo de contraseña** usando plantillas HTML.
-- **Servicio de Email** con implementación para **MailKit (Mailtrap)**.
+- **Servicio de Email Agnóstico** (`SmtpEmailService`) compatible con cualquier proveedor SMTP (Gmail, AWS SES, Mailtrap).
 - **Manejo de Excepciones Global** con middleware personalizado.
 - **CRUD de Administrador Completo** con filtros de búsqueda y paginación optimizada (`IQueryable`).
 - **Pruebas Unitarias** (`xUnit`, `Moq`).
@@ -119,7 +119,7 @@ dotnet user-secrets init
 dotnet user-secrets set "Jwt:Key" "SUPER_SECRET_KEY_MIN_32_CHARS_LONG"
 # URL del frontend para enlaces en correos
 dotnet user-secrets set "AppSettings:FrontendBaseUrl" "http://localhost:5173"
-# (Opcional) Licencia de AutoMapper si aplica, o dejar vacío/dummy
+# (Opcional) Licencia de AutoMapper si aplica
 dotnet user-secrets set "AutoMapper:Key" "dummy"
 
 # --- Base de Datos ---
@@ -132,12 +132,14 @@ dotnet user-secrets set "ConnectionStrings:TestConnection" "Server=localhost,143
 dotnet user-secrets set "Authentication:Google:ClientId" "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
 dotnet user-secrets set "Authentication:Google:ClientSecret" "TU_GOOGLE_CLIENT_SECRET"
 
-# --- Mailtrap (Email) ---
-dotnet user-secrets set "MailtrapSettings:Host" "smtp.mailtrap.io"
-dotnet user-secrets set "MailtrapSettings:Port" "587"
-dotnet user-secrets set "MailtrapSettings:Username" "TU_MAILTRAP_USER"
-dotnet user-secrets set "MailtrapSettings:Password" "TU_MAILTRAP_PASS"
-dotnet user-secrets set "MailtrapSettings:FromEmail" "no-reply@tuapp.com"
+# --- Configuración SMTP (Email) ---
+# Ejemplo con Mailtrap (o Gmail/AWS cambiando el host)
+dotnet user-secrets set "SmtpSettings:Host" "smtp.mailtrap.io"
+dotnet user-secrets set "SmtpSettings:Port" "587"
+dotnet user-secrets set "SmtpSettings:Username" "TU_USUARIO_SMTP"
+dotnet user-secrets set "SmtpSettings:Password" "TU_PASSWORD_SMTP"
+dotnet user-secrets set "SmtpSettings:FromEmail" "no-reply@tuapp.com"
+dotnet user-secrets set "SmtpSettings:FromName" "AccountPanel Dev"
 
 cd ../..
 ```

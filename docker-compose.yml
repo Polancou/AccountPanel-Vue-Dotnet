@@ -8,7 +8,7 @@ services:
     user: "root"
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=TuPasswordFuerte!123 # ¡Cambia esto!
+      - SA_PASSWORD=${SA_PASSWORD}
     ports:
       - "1433:1433"
     volumes:
@@ -27,20 +27,22 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       # Cadena de conexión apuntando al servicio 'db' en lugar de localhost
-      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=accountpanel_db;User Id=sa;Password=TuPasswordFuerte!123;TrustServerCertificate=True;
+      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=accountpanel_db;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
       # Configuración JWT (debe coincidir con secrets o ser inyectada)
-      - Jwt__Key=ESTA_ES_UNA_CLAVE_SECRETA_MUY_LARGA_PARA_DOCKER
+      - Jwt__Key=${JWT_KEY}
       - Jwt__Issuer=http://localhost:5272
       # Configuración AppSettings
       - AppSettings__FrontendBaseUrl=http://localhost:5173
-      # Configuración Google/Mailtrap (Rellenar con valores reales o secretos)
+      # Configuración Google
       - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:-change_me}
       - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:-change_me}
-      - MailtrapSettings__Host=smtp.mailtrap.io
-      - MailtrapSettings__Port=587
-      - MailtrapSettings__Username=${MAILTRAP_USER:-change_me}
-      - MailtrapSettings__Password=${MAILTRAP_PASS:-change_me}
-      - MailtrapSettings__FromEmail=no-reply@accountpanel.com
+      # Mapeo de variables SMTP del .env a la configuración de .NET
+      - SmtpSettings__Host=${SMTP_HOST}
+      - SmtpSettings__Port=${SMTP_PORT}
+      - SmtpSettings__Username=${SMTP_USERNAME}
+      - SmtpSettings__Password=${SMTP_PASSWORD}
+      - SmtpSettings__FromEmail=${SMTP_FROM_EMAIL}
+      - SmtpSettings__FromName=${SMTP_FROM_NAME}
     ports:
       - "5272:8080" # Mapeamos el puerto interno 8080 al 5272 de tu máquina
     volumes:

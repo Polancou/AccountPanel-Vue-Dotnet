@@ -1,5 +1,3 @@
-// --- LIBRERÍAS DE SISTEMA Y MICROSOFT ---
-
 using System.Text;
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
@@ -20,21 +18,14 @@ using Scalar.AspNetCore;
 using Serilog;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
-// --- LIBRERÍAS DE TERCEROS ---
-
-// --- NAMESPACES DE LA APLICACIÓN (NUEVA ARQUITECTURA) ---
-// Se referencian todas las capas para poder registrar sus servicios.
-
-// --- 1. CONFIGURACIÓN INICIAL DE LA APLICACIÓN ---
+// Configuración inicial
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 2. CONFIGURACIÓN DEL LOGGING ---
+// Configuración log
 builder.Host.UseSerilog((context, configuration) => { configuration.ReadFrom.Configuration(context.Configuration); });
-
-// --- 3. CONFIGURACIÓN DE SERVICIOS (INYECCIÓN DE DEPENDENCIAS) ---
-// Esta es la sección más importante para la Arquitectura Limpia.
-// Aquí se "enseña" a la aplicación cómo resolver los contratos (interfaces).
 
 // --- Registro de Servicios de Infraestructura y Aplicación ---
 // Le decimos al contenedor: "Cuando un constructor pida IAuthService, entrégale una instancia de AuthService".
@@ -44,9 +35,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
-builder.Services.AddScoped<IEmailService, MailtrapEmailService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
-builder.Services.Configure<MailtrapSettings>(builder.Configuration.GetSection("MailtrapSettings"));
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
 // --- Configuración de Base de Datos y el Contrato IApplicationDbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -76,6 +67,32 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod();
         });
+});
+
+// Configuración de rate limit
+builder.Services.AddRateLimiter(options =>
+{
+    // Configuración por defecto si una petición es rechazada (429 Too Many Requests)
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Política Estricta para Autenticación
+    // Permite 5 intentos cada 60 segundos por dirección IP.
+    options.AddFixedWindowLimiter("AuthPolicy", opt =>
+    {
+        opt.Window = TimeSpan.FromSeconds(60);
+        opt.PermitLimit = 5;
+        opt.QueueLimit = 0; 
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+
+    // Política Global (opcional, para el resto de la API)
+    // Permite 100 peticiones por minuto por IP.
+    options.AddFixedWindowLimiter("GlobalPolicy", opt =>
+    {
+        opt.Window = TimeSpan.FromSeconds(60);
+        opt.PermitLimit = 100;
+        opt.QueueLimit = 2;
+    });
 });
 
 // --- Configuración de Validación con FluentValidation ---
@@ -149,11 +166,18 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(policyName: "AllowAll");
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
+                       Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
+app.UseRateLimiter();
 app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+app.MapControllers()
+    .RequireRateLimiting("GlobalPolicy");
 
 // --- 6. ARRANQUE DE LA APLICACIÓN ---
 try
