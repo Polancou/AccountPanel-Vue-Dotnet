@@ -31,10 +31,10 @@ jobs:
         with:
           node-version: '22' # Coincide con tu config local
           cache: 'npm'
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: client/package.json
 
       - name: Instalar dependencias
-        run: npm install # 'ci' es más rápido y seguro que 'install' para CI
+        run: npm install 
 
       - name: Verificar Tipado (Type Check)
         # Ejecuta vue-tsc para asegurar que no hay errores de TypeScript
@@ -93,7 +93,7 @@ jobs:
           # Connection String para los tests de integración (apunta a localhost del runner)
           ConnectionStrings__TestConnection: "Server=localhost,1433;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
           # Variables dummy para que los validadores no fallen al iniciar
-          Jwt__Key: "WtD5LhJ7pQzR4gB9tVcYx2mF8nPqK6sVbCdEwXyZaBcGdEfGhIjKlMnOpQrSt"
+          Jwt__Key: "8a5676f81712ec7e06d61e599e43cd5afb87dc4efa36fdca550cf10616f20fa0f97a13a9dd43d02b76993d7228f478e7400069230b7a7c5ca5f9941209b2b059"
           Authentication__Google__ClientId: "dummy_client_id"
           Authentication__Google__ClientSecret: "dummy_client_secret"
           MailtrapSettings__Username: "dummy"
