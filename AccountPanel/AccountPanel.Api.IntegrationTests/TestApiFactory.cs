@@ -51,6 +51,7 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddUserSecrets<Program>() 
+            .AddEnvironmentVariables()
             .Build();
 
         // --- 2. Leer la Cadena de Conexión 'master' ---
