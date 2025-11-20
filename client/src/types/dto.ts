@@ -75,3 +75,19 @@ export interface ResetPasswordDto {
   newPassword: string;
   confirmPassword: string;
 }
+
+// Tipo para la respuesta de Google
+export interface GoogleCredentialResponse {
+  credential: string;
+}
+
+export interface AdminUserQueryParams {
+  pageNumber: number;
+  pageSize: number;
+  searchTerm?: string;
+  rol?: string | number;
+}
+
+export interface ApiErrorResponse {
+  message: string;
+}

@@ -8,6 +8,7 @@ import BaseButton from '@/components/common/BaseButton.vue'
 import { Form } from 'vee-validate'
 import { z } from 'zod'
 import { toTypedSchema } from '@vee-validate/zod'
+import type { RegistroUsuarioDto} from '@/types/dto';
 
 // Accedemos al store de autenticación
 const authStore = useAuthStore()
@@ -40,11 +41,12 @@ const successMessage = ref<string | null>(null)
 /**
  * Función para manejar el registro de usuario
  */
-const handleRegister = async (values: any) => {
+const handleRegister = async (values: Record<string, unknown>) => {
   // Limpia mensajes previos
   successMessage.value = null
   // Llama al store para registrar
-  const success = await authStore.register(values)
+  const userData = values as unknown as RegistroUsuarioDto;
+  const success = await authStore.register(userData)
   // Si el registro fue exitoso, muestra mensaje y redirige
   if (success) {
     successMessage.value = "Registro exitoso. Redirigiendo al inicio de sesión..."

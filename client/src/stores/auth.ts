@@ -7,12 +7,14 @@ import { useRouter } from 'vue-router'
 // Importaciones para DTO
 import type {
   LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto,
-  CambiarPasswordDto, JwtPayload, TokenResponseDto, ForgotPasswordDto, ResetPasswordDto
+  CambiarPasswordDto, JwtPayload, TokenResponseDto, ForgotPasswordDto, ResetPasswordDto,
+  GoogleCredentialResponse, ApiErrorResponse
 } from "@/types/dto.ts"
 // Importación de Toast de Vue Sonner
 import { toast } from 'vue-sonner'
 // Importación de jwtDecode para decodificar el token
 import { jwtDecode } from 'jwt-decode'
+import type { AxiosError } from 'axios';
 
 /**
  * Store de autenticación usando Pinia.
@@ -67,9 +69,10 @@ export const useAuthStore = defineStore('auth', () => {
       toast.success('Sesión iniciada correctamente');
       // Redirige a la página de perfil
       router.push({ name: 'profile' })
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
       // Obtiene el mensaje de error
-      const message = err.response?.data?.message || 'Error al iniciar sesión.'
+      const message = axiosError.response?.data?.message || 'Error al iniciar sesión.'
       // Muestra un toast de vue sonner indicando que ocurrió un error
       toast.error(message);
       // Cuando ocurre una exception, se actualiza el mensaje del usuario
@@ -99,9 +102,10 @@ export const useAuthStore = defineStore('auth', () => {
       });
       // Indica que el registro fue exitoso
       return true
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
       // Obtiene el mensaje de error
-      const message = err.response?.data?.message || 'Error al registrarse.'
+      const message = axiosError.response?.data?.message || 'Error al registrarse.'
       // Muestra un toast de vue sonner indicando que ocurrió un error
       toast.error(message);
       // Cuando ocurre una exception, se actualiza el mensaje del usuario
@@ -154,9 +158,12 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await apiClient.get<PerfilUsuarioDto>('/v1/profile/me')
       // Actualiza el estado reactivo del perfil del usuario
       userProfile.value = response.data
-    } catch (error: any) {
+    } catch (err: unknown) {
       // Actualiza el mensaje de error para el usuario
-      error.value = error.response?.data?.message || 'Error al cargar el perfil.'
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al actualizar el perfil.'
+      toast.error(message)
+      error.value = message;
     } finally {
       // Finaliza el loop de carga
       isLoading.value = false
@@ -198,9 +205,10 @@ export const useAuthStore = defineStore('auth', () => {
       // Indica éxito
       return true;
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Obtiene el mensaje de error
-      const message = err.response?.data?.message || 'Error al actualizar el perfil.'
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al actualizar el perfil.'
       // Muestra un toast de vue sonner indicando que ocurrió un error
       toast.error(message)
 
@@ -232,8 +240,9 @@ export const useAuthStore = defineStore('auth', () => {
       toast.success(response.data.message || 'Contraseña actualizada con éxito');
       return true;
 
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Error al cambiar la contraseña.';
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al actualizar el perfil.'
       toast.error(message);
       error.value = message;
       return false;
@@ -273,8 +282,9 @@ export const useAuthStore = defineStore('auth', () => {
       }
       toast.success("Foto de perfil actualizada.");
 
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Error al subir la imagen.';
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al subir la imagen.';
       toast.error(message);
       error.value = message;
     } finally {
@@ -334,7 +344,7 @@ export const useAuthStore = defineStore('auth', () => {
    * Maneja el callback de Google Login.
    * @param response El objeto de credenciales devuelto por Google.
    */
-  async function handleGoogleLogin(response: any) {
+  async function handleGoogleLogin(response: GoogleCredentialResponse) {
     isLoading.value = true
     error.value = null
 
@@ -359,8 +369,9 @@ export const useAuthStore = defineStore('auth', () => {
       toast.success('Sesión iniciada con Google');
       router.push({ name: 'profile' })
 
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Error al iniciar sesión con Google.'
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al iniciar sesión con Google.'
       toast.error(message);
       error.value = message
     } finally {
@@ -378,8 +389,9 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await apiClient.post('/v1/auth/forgot-password', dto);
       toast.success(response.data.message || "Correo enviado.");
       return true;
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Error al enviar el correo.';
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al restablecer la contraseña.';
       toast.error(message);
       error.value = message;
       return false;
@@ -398,8 +410,9 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await apiClient.post('/v1/auth/reset-password', dto);
       toast.success(response.data.message || "Contraseña restablecida.");
       return true;
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Error al restablecer la contraseña.';
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      const message = axiosError.response?.data?.message || 'Error al restablecer la contraseña.';
       toast.error(message);
       error.value = message;
       return false;
@@ -419,4 +432,4 @@ export const useAuthStore = defineStore('auth', () => {
   {
     // Habilita la persistencia automática del store
     persist: true
-  }) 
+  })

@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import { Form } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+import type {ResetPasswordDto} from "@/types/dto.ts";
 
 // Store y Router
 const authStore = useAuthStore()
@@ -52,21 +53,26 @@ onMounted(() => {
 /**
  * Maneja el envío del formulario
  */
-const handleSubmit = async (values: any) => {
-    if (!token.value) return; // Doble chequeo
+const handleSubmit = async (values: Record<string, unknown>) => {
+  if (!token.value) return;
 
-    successMessage.value = null;
-    const dto = { ...values, token: token.value };
+  successMessage.value = null;
+  const formValues = values as { newPassword: string; confirmPassword: string };
 
-    const success = await authStore.resetPassword(dto);
+  const dto: ResetPasswordDto = {
+    token: token.value,
+    newPassword: formValues.newPassword,
+    confirmPassword: formValues.confirmPassword
+  };
+  const success = await authStore.resetPassword(dto);
 
-    if (success) {
-        successMessage.value = "¡Contraseña actualizada! Redirigiendo al inicio de sesión...";
-        // Redirige al login después de 2 segundos
-        setTimeout(() => {
-            router.push({ name: 'login' });
-        }, 2000);
-    }
+  if (success) {
+    successMessage.value = "¡Contraseña actualizada! Redirigiendo al inicio de sesión...";
+    // Redirige al login después de 2 segundos
+    setTimeout(() => {
+      router.push({name: 'login'});
+    }, 2000);
+  }
 }
 </script>
 
