@@ -75,12 +75,14 @@ builder.Services.AddRateLimiter(options =>
     // Configuración por defecto si una petición es rechazada (429 Too Many Requests)
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+    // Configura el limte de peticiones, si no existe, usa 5 por defecto
+    var authPermitLimit = builder.Configuration.GetValue<int>("RateLimiting:AuthPermitLimit", 5);
     // Política Estricta para Autenticación
     // Permite 5 intentos cada 60 segundos por dirección IP.
     options.AddFixedWindowLimiter("AuthPolicy", opt =>
     {
         opt.Window = TimeSpan.FromSeconds(60);
-        opt.PermitLimit = 5;
+        opt.PermitLimit = authPermitLimit;
         opt.QueueLimit = 0; 
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     });
@@ -90,7 +92,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddFixedWindowLimiter("GlobalPolicy", opt =>
     {
         opt.Window = TimeSpan.FromSeconds(60);
-        opt.PermitLimit = 100;
+        opt.PermitLimit = 1000;
         opt.QueueLimit = 2;
     });
 });
@@ -171,13 +173,12 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
                        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
-app.UseRateLimiter();
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers()
-    .RequireRateLimiting("GlobalPolicy");
+app.MapControllers();
 
 // --- 6. ARRANQUE DE LA APLICACIÓN ---
 try

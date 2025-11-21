@@ -8,17 +8,19 @@ import vue3GoogleLogin from 'vue3-google-login'
 
 import App from './App.vue'
 import router from './router'
+import {useAuthStore} from "@/stores/auth.ts";
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 
 const app = createApp(App)
 
-app.use(vue3GoogleLogin, {
-  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID
-})
-
-app.use(pinia)
+app.use(createPinia().use(piniaPluginPersistedstate))
 app.use(router)
+app.use(vue3GoogleLogin, { clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID })
 
-app.mount('#app')
+const authStore = useAuthStore();
+
+authStore.checkAuthOnStart().then(() => {
+  app.mount('#app')
+});

@@ -80,6 +80,13 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "RateLimiting:AuthPermitLimit", "1000" } 
+            });
+        });
         builder.UseContentRoot(Directory.GetCurrentDirectory());
         builder.UseWebRoot(Directory.GetCurrentDirectory());
         builder.ConfigureTestServices(services =>
