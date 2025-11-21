@@ -75,12 +75,14 @@ builder.Services.AddRateLimiter(options =>
     // Configuración por defecto si una petición es rechazada (429 Too Many Requests)
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+    // Configura el limte de peticiones, si no existe, usa 5 por defecto
+    var authPermitLimit = builder.Configuration.GetValue<int>("RateLimiting:AuthPermitLimit", 5);
     // Política Estricta para Autenticación
     // Permite 5 intentos cada 60 segundos por dirección IP.
     options.AddFixedWindowLimiter("AuthPolicy", opt =>
     {
         opt.Window = TimeSpan.FromSeconds(60);
-        opt.PermitLimit = 5;
+        opt.PermitLimit = authPermitLimit;
         opt.QueueLimit = 0; 
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     });
