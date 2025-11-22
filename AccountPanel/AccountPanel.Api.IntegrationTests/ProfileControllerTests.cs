@@ -232,8 +232,8 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
 
         // Ahora podemos hacer assertions sobre las propiedades del JSON
         errorBody.Should().NotBeNull();
-        errorBody.Should().ContainKey("Message");
-        errorBody["Message"].ToString().Should().Be("La contraseña actual es incorrecta.");
+        errorBody.Should().ContainKey("message");
+        errorBody["message"].ToString().Should().Be("La contraseña actual es incorrecta.");
         // result["message"].Should().Be("La contraseña actual es incorrecta.");
     }
 

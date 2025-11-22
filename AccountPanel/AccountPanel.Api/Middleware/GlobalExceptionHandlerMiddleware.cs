@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net;
-using System.Text.Json;
 using AccountPanel.Application.Exceptions;
 
 namespace AccountPanel.Api.Middleware;
@@ -19,16 +18,14 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
         try
         {
             // Intenta ejecutar el siguiente middleware en la cadena.
-            // Si no hay ninguna excepción, este middleware no hace nada más.
             await next(context);
         }
         catch (Exception ex)
         {
-            // Si ocurre cualquier excepción, se captura aquí.
-            // Se loguea el error con todos sus detalles para poder depurarlo.
+            // Loguea el error con todos sus detalles.
             logger.LogError(ex, "Ocurrió una excepción no controlada: {Message}", ex.Message);
 
-            // Se llama al método que se encargará de generar la respuesta HTTP.
+            // Genera la respuesta HTTP.
             await HandleExceptionAsync(context, ex);
         }
     }
@@ -36,25 +33,21 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
     /// <summary>
     /// Genera una respuesta JSON estandarizada para la excepción capturada.
     /// </summary>
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
         context.Response.ContentType = "application/json";
 
-        // --- AÑADIR LÓGICA DE DESENCRIPTADO ---
-        // Si la excepción es una AggregateException (común en tareas async),
-        // usamos la primera excepción interna que es la que nos interesa.
+        // Lógica para desenpaquetar excepciones agregadas (común en async)
         var exceptionToHandle = exception;
         if (exception is AggregateException aggregateException && aggregateException.InnerExceptions.Any())
         {
             exceptionToHandle = aggregateException.InnerExceptions.First();
         }
-        // --- FIN DE LÓGICA DE DESENCRIPTADO ---
 
         HttpStatusCode statusCode;
         string message;
 
-        // Ahora, usamos 'exceptionToHandle' en el switch
+        // Determina el código de estado y mensaje según el tipo de excepción
         switch (exceptionToHandle)
         {
             case NotFoundException:
@@ -71,16 +64,16 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
                 break;
         }
 
-        context.Response.StatusCode = (int)statusCode; // Asigna el código correcto
+        context.Response.StatusCode = (int)statusCode;
 
+        // Objeto de respuesta estandarizado
         var response = new
         {
             StatusCode = context.Response.StatusCode,
-            Message = message, // Usa el mensaje determinado
+            Message = message,
             TraceId = Activity.Current?.Id ?? context.TraceIdentifier
         };
 
-        var jsonResponse = JsonSerializer.Serialize(response);
-        return context.Response.WriteAsync(jsonResponse);
+        await context.Response.WriteAsJsonAsync(response);
     }
 }

@@ -8,5 +8,9 @@ public interface IFileStorageService
     /// <param name="fileName">Nombre del archivo a cargar.</param>
     /// <returns>El contenido del archivo.</returns>
     Task<string> SaveFileAsync(Stream fileStream, string fileName);
-    void DeleteFile(string fileRoute);
+    /// <summary>
+    /// Elimina un archivo del almacenamiento.
+    /// </summary>
+    /// <param name="fileRoute">La ruta o URL del archivo a eliminar.</param>
+    Task DeleteFileAsync(string fileRoute);
 }
