@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Asp.Versioning;
 using AccountPanel.Application.DTOs;
 using AccountPanel.Application.Interfaces;
+using AccountPanel.Application.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -75,36 +76,27 @@ public class ProfileController(IProfileService profileService) : ControllerBase
     [HttpPost("avatar")]
     public async Task<IActionResult> UploadAvatar(IFormFile file)
     {
-        // Valida que se haya enviado un archivo
+        // 1. Validaciones básicas
         if (file == null || file.Length == 0)
-        {
             return BadRequest(new { message = "No se ha proporcionado ningún archivo." });
-        }
 
-        // Valida el tipo de archivo
-        if (!file.ContentType.StartsWith("image/"))
-        {
-            return BadRequest(new { message = "El archivo debe ser de tipo imagen." });
-        }
-
-        // Valida el tamaño del archivo
         if (file.Length > 1024 * 1024 * 2)
-        {
             return BadRequest(new { message = "El archivo debe ser menor a 2 MB." });
-        }
 
-        // Valida el formato del archivo
-        var fileExtension = Path.GetExtension(file.FileName);
-        if (!fileExtension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) &&
-            !fileExtension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) &&
-            !fileExtension.Equals(".png", StringComparison.OrdinalIgnoreCase))
+        var fileExtension = Path.GetExtension(file.FileName).ToLower();
+        
+        // 2. Validación Avanzada (Magic Numbers)
+        // Abrimos el stream para leer los bytes reales
+        using (var stream = file.OpenReadStream())
         {
-            return BadRequest(new { message = "El archivo debe ser de formato JPG, JPEG o PNG." });
+            if (!FileSignatureValidator.IsValidImage(stream, fileExtension))
+            {
+                return BadRequest(new { message = "El archivo no es una imagen válida o está corrupto." });
+            }
         }
 
-        // Se delega completamente la lógica de subida de avatar al servicio de perfil
+        // 3. Si pasa, procedemos a subir
         var newAvatarUrl = await profileService.UploadAvatarAsync(UserId, file);
-        // Devuelve 200 OK con la nueva URL del avatar
         return Ok(new { avatarUrl = newAvatarUrl });
     }
 }

@@ -36,7 +36,7 @@ builder.Services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
-
+builder.Services.AddHealthChecks();
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
 // --- Configuración de Base de Datos y el Contrato IApplicationDbContext ---
@@ -58,14 +58,15 @@ builder.Services.AddAutoMapper(cfg => cfg.LicenseKey = builder.Configuration["Au
     AppDomain.CurrentDomain.GetAssemblies());
 
 // --- Configuración de CORS ---
+var frontendUrl = builder.Configuration["AppSettings:FrontendBaseUrl"];
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: "AllowAll",
+    options.AddPolicy(name: "ClientApp",
         policy =>
         {
-            policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+            policy.WithOrigins(frontendUrl) 
+                .AllowAnyHeader()
+                .AllowAnyMethod();
         });
 });
 
@@ -167,7 +168,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseCors(policyName: "AllowAll");
+app.UseCors(policyName: "ClientApp");
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
@@ -178,6 +179,7 @@ app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 // --- 6. ARRANQUE DE LA APLICACIÓN ---

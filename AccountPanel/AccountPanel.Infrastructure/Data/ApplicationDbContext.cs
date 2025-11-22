@@ -1,6 +1,7 @@
 using AccountPanel.Application.Interfaces;
 using AccountPanel.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AccountPanel.Infrastructure.Data;
 
@@ -36,6 +37,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// </summary>
     public virtual DbSet<UserLogin> UserLogins { get; set; }
 
+    public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        // Inicia una nueva transacción de base de datos
+        return await Database.BeginTransactionAsync(cancellationToken);
+    }
+    
     /// <summary>
     /// Se invoca cuando el modelo para un contexto derivado está siendo creado.
     /// Este método permite una configuración más detallada del modelo de base de datos
