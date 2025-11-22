@@ -18,6 +18,19 @@ namespace AccountPanel.Api.Controllers;
 [EnableRateLimiting("AuthPolicy")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    private void SetRefreshTokenInCookie(string refreshToken)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,   
+            Expires = DateTime.UtcNow.AddDays(30), 
+            SameSite = SameSiteMode.Strict, // Protege contra CSRF
+            Secure = true // Solo se envía por HTTPS (localhost lo permite en dev)
+        };
+        
+        Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+    }
+    
     /// <summary>
     /// Endpoint para registrar un nuevo usuario en el sistema.
     /// </summary>
@@ -49,9 +62,11 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginUsuarioDto loginDto)
     {
         // Se delega la lógica de login al servicio de autenticación
-        var tokenResponse = await authService.LoginAsync(loginDto);
-        // Devuelve el token de acceso y el refresh token
-        return Ok(tokenResponse);
+        var result = await authService.LoginAsync(loginDto);
+        // Guarda el refresh token en la cookie
+        SetRefreshTokenInCookie(result.RefreshToken);
+        // Devuelve el access token en el JSON
+        return Ok(new { accessToken = result.AccessToken });
     }
 
     /// <summary>
@@ -65,10 +80,12 @@ public class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("external-login")]
     public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginDto externalLoginDto)
     {
-        // Se delega la lógica de login externo al servicio de autenticación.
-        var tokenResponse = await authService.ExternalLoginAsync(externalLoginDto);
-        // Devuelve el token de acceso y el refresh token
-        return Ok(tokenResponse);
+        // Se delega la lógica al servicio de autenticación
+        var result = await authService.ExternalLoginAsync(externalLoginDto);
+        // Guarda el refresh token en la cookie
+        SetRefreshTokenInCookie(result.RefreshToken);
+        // Devuelve el access token en el JSON
+        return Ok(new { accessToken = result.AccessToken });
     }
 
     /// <summary>
@@ -81,10 +98,35 @@ public class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto refreshTokenRequest)
     {
-        // Se delega la lógica de refresco al servicio de autenticación
-        var tokenResponse = await authService.RefreshTokenAsync(refreshTokenRequest.RefreshToken);
-        // Devuelve el token de acceso y el refresh token
-        return Ok(tokenResponse);
+        // Intenta leer el token desde la cookie
+        var refreshToken = Request.Cookies["refreshToken"];
+
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return BadRequest(new { message = "El token de refresco es requerido." });
+        }
+
+        // Llama al servicio
+        var result = await authService.RefreshTokenAsync(refreshToken);
+
+        // Rotación de tokens: Actualiza la cookie con el nuevo refresh token
+        SetRefreshTokenInCookie(result.RefreshToken);
+
+        return Ok(new { accessToken = result.AccessToken });
+    }
+
+    /// <summary>
+    /// Endpoint para cerrar la sesión de un usuario.
+    /// </summary>
+    /// <returns>
+    /// Un resultado 200 OK si la operación se ejecuta correctamente, con un mensaje confirmando que la sesión fue cerrada.
+    /// </returns>
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        // Borra la cookie estableciendo una fecha pasada
+        Response.Cookies.Delete("refreshToken");
+        return Ok(new { message = "Sesión cerrada correctamente." });
     }
 
     /// <summary>

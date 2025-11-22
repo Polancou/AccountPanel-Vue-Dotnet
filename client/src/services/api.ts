@@ -5,7 +5,8 @@ import router from '@/router';
 
 // Crear instancia de Axios
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5272/api'
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5272/api',
+  withCredentials: true
 });
 
 // Interceptor de Petición (Request)

@@ -192,7 +192,6 @@ public class AuthControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetime
         var responseData = await response.Content.ReadFromJsonAsync<TokenResponseDto>();
         responseData.Should().NotBeNull();
         responseData.AccessToken.Should().NotBeNullOrEmpty();
-        responseData.RefreshToken.Should().NotBeNullOrEmpty();
 
         // 2. Verificamos que el refresh token se guardó en la base de datos.
         using (var scope = _factory.Services.CreateScope())
@@ -200,7 +199,6 @@ public class AuthControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetime
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var user = await context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
             user.Should().NotBeNull();
-            user.RefreshToken.Should().Be(responseData.RefreshToken);
             user.RefreshTokenExpiryTime.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), precision: TimeSpan.FromSeconds(10));
         }
     }

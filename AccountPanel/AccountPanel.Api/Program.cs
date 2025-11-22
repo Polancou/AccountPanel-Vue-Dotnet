@@ -59,15 +59,17 @@ builder.Services.AddAutoMapper(cfg => cfg.LicenseKey = builder.Configuration["Au
     AppDomain.CurrentDomain.GetAssemblies());
 
 // --- Configuración de CORS ---
-var frontendUrl = builder.Configuration["AppSettings:FrontendBaseUrl"];
+var frontendUrl = builder.Configuration["AppSettings:FrontendBaseUrl"] ?? "http://localhost:5173";
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: "ClientApp",
+    options.AddPolicy(name: "ClientPermission",
         policy =>
         {
             policy.WithOrigins(frontendUrl) 
                 .AllowAnyHeader()
-                .AllowAnyMethod();
+                .AllowAnyMethod()
+                .AllowCredentials();     
         });
 });
 
@@ -169,7 +171,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseCors(policyName: "ClientApp");
+app.UseCors(policyName: "ClientPermission");
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | 
