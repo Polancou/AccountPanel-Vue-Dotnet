@@ -28,29 +28,39 @@ public class AuthService(
     /// <returns>Un AuthResult indicando el éxito o fracaso de la operación.</returns>
     public async Task<AuthResult> RegisterAsync(RegistroUsuarioDto registroDto)
     {
-        // Verifica si ya existe un usuario con el mismo email para evitar duplicados.
-        // Utiliza el contrato IApplicationDbContext para abstraer el acceso a datos.
+        // 1. Validación de usuario existente (con protección de enumeración)
         var usuarioExistente = await context.Usuarios.AnyAsync(u => u.Email.ToLower() == registroDto.Email.ToLower());
+    
         if (usuarioExistente)
         {
-            return AuthResult.Fail("El correo electrónico ya está en uso.");
+            return AuthResult.Ok(null, "Si el correo es válido, recibirás un enlace de confirmación.");
         }
 
-        // Hashea la contraseña del usuario. Esta es una responsabilidad de la lógica de negocio.
+        // 2. Preparar datos
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(registroDto.Password);
+    
+        // Generar el token de verificación 
+        var verificationToken = tokenService.GenerarRefreshToken(); 
 
-        // Crea una nueva instancia de la entidad de dominio Usuario.
-        var nuevoUsuario = new Usuario(nombreCompleto: registroDto.NombreCompleto, email: registroDto.Email, numeroTelefono: registroDto.NumeroTelefono,
+        var nuevoUsuario = new Usuario(
+            nombreCompleto: registroDto.NombreCompleto, 
+            email: registroDto.Email, 
+            numeroTelefono: registroDto.NumeroTelefono,
             rol: RolUsuario.User);
+    
         nuevoUsuario.EstablecerPasswordHash(passwordHash);
+    
+        // Asignar el token a la entidad 
+        nuevoUsuario.SetEmailVerificationToken(verificationToken);
 
-        // Añade el nuevo usuario a través del contexto y guarda los cambios.
+        // 3. Guardar en Base de Datos (Operación Atómica Única)
         await context.Usuarios.AddAsync(nuevoUsuario);
-        await context.SaveChangesAsync();
-        // Enviar el correo de verificación
+        await context.SaveChangesAsync(); 
+
+        // 4. Enviar correo (fuera de la transacción de BD)
         await SendVerificationEmailAsync(nuevoUsuario);
-        // Devuelve un resultado exitoso.
-        return AuthResult.Ok(null, "Usuario registrado exitosamente.");
+
+        return AuthResult.Ok(null, "Si el correo es válido, recibirás un enlace de confirmación.");
     }
 
     /// <summary>
@@ -86,8 +96,6 @@ public class AuthService(
     /// <summary>
     /// Autentica a un usuario utilizando un token de un proveedor externo (ej. Google).
     /// </summary>
-    /// <param name="externalLoginDto">DTO con el nombre del proveedor y el token de ID.</param>
-    /// <returns>Un AuthResult que contiene el token JWT si la autenticación es exitosa.</returns>
     public async Task<TokenResponseDto> ExternalLoginAsync(ExternalLoginDto externalLoginDto)
     {
         // Validar que el proveedor es Google
@@ -95,62 +103,83 @@ public class AuthService(
         {
             throw new ValidationException("Proveedor no soportado.");
         }
-        // Validar que el token de ID sea válido
+        
+        // Validar el token
         var userInfo = await externalAuthValidator.ValidateTokenAsync(externalLoginDto.IdToken);
-
         if (userInfo == null)
         {
             throw new ValidationException("Token externo inválido.");
         }
-        // Comienza la lógica de negocio: buscar si el login externo ya existe
-        var userLogin = await context.UserLogins.Include(ul => ul.Usuario)
-            .FirstOrDefaultAsync(ul => ul.LoginProvider == "Google" && ul.ProviderKey == userInfo.ProviderSubjectId);
-        // Declaramos el usuario
-        Usuario usuario;
-        // Si el usuario ya se ha logueado antes con este proveedor, obtenemos su usuario
-        if (userLogin != null)
+
+        // Inicia transaction
+        // Usa 'using' para asegurar que se haga Dispose si algo falla
+        await using var transaction = await context.BeginTransactionAsync();
+        try
         {
-            usuario = userLogin.Usuario;
-        }
-        else
-        {
-            // Nuevo login, buscar por email o crear nuevo usuario
-            usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == userInfo.Email.ToLower());
-            // Si el usuario ya se ha logueado antes con este proveedor, simplemente genera un nuevo token.
-            if (usuario == null)
+            // 1. Buscar Login Existente
+            var userLogin = await context.UserLogins.Include(ul => ul.Usuario)
+                .FirstOrDefaultAsync(ul => ul.LoginProvider == "Google" && ul.ProviderKey == userInfo.ProviderSubjectId);
+
+            Usuario usuario;
+
+            if (userLogin != null)
             {
-                // Creamos un nuevo usuario con la información del proveedor.
-                usuario = new Usuario(nombreCompleto: userInfo.Name, email: userInfo.Email, numeroTelefono: "", rol: RolUsuario.User);
-                // Asignamos la URL de la foto del usuario.
-                usuario.SetAvatarUrl(userInfo.PictureUrl);
-                // Marcamos el email como verificado
-                usuario.MarkEmailAsVerified();
-                // Guardamos el usuario en la base de datos.
-                await context.Usuarios.AddAsync(usuario);
+                usuario = userLogin.Usuario;
+            }
+            else
+            {
+                // 2. Nuevo Login: Buscar usuario por email o crear uno nuevo
+                usuario = await context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == userInfo.Email.ToLower());
+
+                if (usuario == null)
+                {
+                    // Crear Usuario
+                    usuario = new Usuario(nombreCompleto: userInfo.Name, email: userInfo.Email, numeroTelefono: "", rol: RolUsuario.User);
+                    usuario.SetAvatarUrl(userInfo.PictureUrl);
+                    usuario.MarkEmailAsVerified(); // Email de Google ya viene verificado
+                    
+                    await context.Usuarios.AddAsync(usuario);
+                    await context.SaveChangesAsync(); // Se guarda temporalmente dentro de la transacción
+                }
+
+                // Crear Relación Login
+                var nuevoLogin = new UserLogin(
+                    loginProvider: "Google",
+                    providerKey: userInfo.ProviderSubjectId,
+                    usuario: usuario);
+                
+                // Actualizar foto si es necesario
+                if (string.IsNullOrEmpty(usuario.AvatarUrl))
+                {
+                     usuario.SetAvatarUrl(userInfo.PictureUrl);
+                }
+
+                await context.UserLogins.AddAsync(nuevoLogin);
                 await context.SaveChangesAsync();
             }
-            // Se crea el registro del login externo y se asocia con la cuenta de usuario (nueva o existente).
-            var nuevoLogin = new UserLogin(
-                loginProvider: "Google",
-                providerKey: userInfo.ProviderSubjectId,
-                usuario: usuario);
-            usuario.SetAvatarUrl(userInfo.PictureUrl);
-            await context.UserLogins.AddAsync(nuevoLogin);
-            await context.SaveChangesAsync();
-        }
 
-        // Genera los tokens de acceso y refresco
-        var accessToken = tokenService.CrearToken(usuario);
-        var refreshToken = tokenService.GenerarRefreshToken();
-        // Guardamos el nuevo refresh token en el usuario (expira en 30 días)
-        usuario.SetRefreshToken(refreshToken, DateTime.UtcNow.AddDays(30));
-        await context.SaveChangesAsync();
-        // Devuelve los tokens
-        return new TokenResponseDto
+            // 3. Generar Tokens
+            var accessToken = tokenService.CrearToken(usuario);
+            var refreshToken = tokenService.GenerarRefreshToken();
+            
+            usuario.SetRefreshToken(refreshToken, DateTime.UtcNow.AddDays(30));
+            await context.SaveChangesAsync();
+
+            // Commit de transaction
+            await transaction.CommitAsync();
+
+            return new TokenResponseDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            };
+        }
+        catch (Exception)
         {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken
-        };
+            // Si ocurre CUALQUIER error, deshace todos los cambios (Rollback)
+            await transaction.RollbackAsync();
+            throw; // Relanza la excepción para que el controlador la maneje (log + respuesta http)
+        }
     }
 
     /// <summary>

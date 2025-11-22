@@ -284,7 +284,10 @@ public class ProfileControllerTests : IClassFixture<TestApiFactory>, IAsyncLifet
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // 2. Crea el contenido del formulario (multipart/form-data)
-        await using var stream = new MemoryStream("fake-image-bytes"u8.ToArray());
+        // Usa bytes reales de un encabezado JPEG
+        // FF D8 FF E0 son los bytes que identifican un archivo como JPG.
+        var validJpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01 };
+        await using var stream = new MemoryStream(validJpegBytes);
         using var content = new MultipartFormDataContent();
         using var fileContent = new StreamContent(stream);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");

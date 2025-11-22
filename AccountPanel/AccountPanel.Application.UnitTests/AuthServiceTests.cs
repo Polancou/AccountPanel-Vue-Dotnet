@@ -3,6 +3,7 @@ using AccountPanel.Application.Interfaces;
 using AccountPanel.Application.Services;
 using AccountPanel.Domain.Models;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
 using Moq.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +39,10 @@ public class AuthServiceTests
         _mockEmailService = new Mock<IEmailService>();
         _mockConfiguration = new Mock<IConfiguration>();
 
+        // Creamos un mock de la transacción
+        var mockTransaction = new Mock<IDbContextTransaction>();
+        _mockDbContext.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockTransaction.Object);
         // 4. Se crea la instancia del AuthService, pasándole los objetos simulados (.Object).
         _authService = new AuthService(
             context: _mockDbContext.Object,
@@ -79,7 +84,7 @@ public class AuthServiceTests
         // --- Assert (Verificar) ---
         // Se comprueba que el resultado de la operación sea exitoso.
         result.Success.Should().BeTrue();
-        result.Message.Should().Be("Usuario registrado exitosamente.");
+        result.Message.Should().Be("Si el correo es válido, recibirás un enlace de confirmación.");
 
         // Se verifica que el método para guardar cambios en el contexto fue llamado
         // exactamente una vez. Esto confirma que el servicio intentó persistir los datos.
@@ -106,8 +111,8 @@ public class AuthServiceTests
 
         // --- Assert (Verificar) ---
         // Se comprueba que el resultado sea un fallo con el mensaje de error esperado.
-        result.Success.Should().BeFalse();
-        result.Message.Should().Be("El correo electrónico ya está en uso.");
+        result.Success.Should().BeTrue();
+        result.Message.Should().Be("Si el correo es válido, recibirás un enlace de confirmación.");
     }
 
     /// <summary>

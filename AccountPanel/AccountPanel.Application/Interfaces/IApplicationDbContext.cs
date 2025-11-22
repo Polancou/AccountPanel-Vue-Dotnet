@@ -1,7 +1,6 @@
 using AccountPanel.Domain.Models;
 using Microsoft.EntityFrameworkCore;
-
-// Asegúrate de tener el using a tu proyecto Domain
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AccountPanel.Application.Interfaces;
 
@@ -13,4 +12,6 @@ public interface IApplicationDbContext
 
     // Expone la habilidad de guardar cambios
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+    // Soporte para transactions
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 }

@@ -27,4 +27,22 @@ public class FileStorageService(IWebHostEnvironment env) : IFileStorageService
         // Devuelve la URL relativa que el frontend puede usar
         return $"/uploads/avatars/{fileName}";
     }
+
+    /// <summary>
+    /// Deletes a file from the file system based on its relative path.
+    /// </summary>
+    /// <param name="fileRoute">The relative path of the file to be deleted.</param>
+    public void DeleteFile(string fileRoute)
+    {
+        if (string.IsNullOrEmpty(fileRoute)) return;
+
+        // Quitamos la barra inicial si existe
+        var relativePath = fileRoute.TrimStart('/');
+        var filePath = Path.Combine(env.WebRootPath, relativePath);
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+    }
 }
