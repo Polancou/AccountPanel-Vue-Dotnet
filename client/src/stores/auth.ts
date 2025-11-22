@@ -440,7 +440,7 @@ export const useAuthStore = defineStore('auth', () => {
     token, isLoading, error, isAuthenticated, userProfile, userRole, isAdmin, refreshToken,
     // Exporta los actions
     login, logout, register, fetchProfile, updateProfile, changePassword, uploadAvatar,
-    refreshAccessToken, handleGoogleLogin, forgotPassword, resetPassword, checkAuthOnStart
+    refreshAccessToken, handleGoogleLogin, forgotPassword, resetPassword, checkAuthOnStart, logoutLocally
   }
 },
   {

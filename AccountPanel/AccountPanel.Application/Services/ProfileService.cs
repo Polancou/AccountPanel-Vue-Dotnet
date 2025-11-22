@@ -111,7 +111,7 @@ public class ProfileService(IApplicationDbContext context, IMapper mapper, IFile
         // Si no se encuentra el usuario, la operación falla.
         if (usuario == null) throw new NotFoundException("Usuario no encontrado.");
         // Borrar avatar anterior
-        if (!string.IsNullOrEmpty(usuario.AvatarUrl)) fileStorageService.DeleteFile(usuario.AvatarUrl);
+        if (!string.IsNullOrEmpty(usuario.AvatarUrl)) await fileStorageService.DeleteFileAsync(usuario.AvatarUrl);
         // Genera un nombre de archivo único para evitar colisiones
         var fileExtension = Path.GetExtension(file.FileName);
         var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";

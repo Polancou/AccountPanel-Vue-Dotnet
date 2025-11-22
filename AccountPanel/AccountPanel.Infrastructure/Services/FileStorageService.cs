@@ -1,48 +1,53 @@
 using AccountPanel.Application.Interfaces;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 
 namespace AccountPanel.Infrastructure.Services;
 
-public class FileStorageService(IWebHostEnvironment env) : IFileStorageService
+public class LocalFileStorageService(IWebHostEnvironment env, IHttpContextAccessor httpContextAccessor) : IFileStorageService
 {
-    /// <summary>
-    /// Implementa la lógica de negocio para guardar un archivo en el sistema de archivos.
-    /// </summary>
-    /// <param name="fileStream">El stream del archivo a guardar.</param>
-    /// <param name="fileName">El nombre del archivo a guardar.</param>
-    /// <returns>La URL relativa que el frontend puede usar para mostrar el archivo.</returns>
+    private const string ContainerName = "uploads/avatars";
+
     public async Task<string> SaveFileAsync(Stream fileStream, string fileName)
     {
-        // Define la ruta de la carpeta "uploads" dentro de wwwroot
-        var uploadsPath = Path.Combine(env.WebRootPath, "uploads", "avatars");
-        // Crea el directorio si no existe
-        if (!Directory.Exists(uploadsPath)) Directory.CreateDirectory(uploadsPath);
-        // Define la ruta completa del archivo
+        // 1. Definir la ruta física en el servidor
+        var uploadsPath = Path.Combine(env.WebRootPath, ContainerName);
+
+        if (!Directory.Exists(uploadsPath))
+        {
+            Directory.CreateDirectory(uploadsPath);
+        }
+
         var filePath = Path.Combine(uploadsPath, fileName);
-        // Copia el stream del archivo al sistema de archivos
-        await using (var outputStream = new FileStream(filePath, FileMode.Create))
+
+        // 2. Guardar el archivo físicamente
+        using (var outputStream = new FileStream(filePath, FileMode.Create))
         {
             await fileStream.CopyToAsync(outputStream);
         }
-        // Devuelve la URL relativa que el frontend puede usar
-        return $"/uploads/avatars/{fileName}";
-    }
 
+        // 3. Retornar la URL relativa
+        return $"/{ContainerName}/{fileName}";
+    }
+    
     /// <summary>
     /// Deletes a file from the file system based on its relative path.
     /// </summary>
     /// <param name="fileRoute">The relative path of the file to be deleted.</param>
-    public void DeleteFile(string fileRoute)
+    public Task DeleteFileAsync(string fileRoute)
     {
-        if (string.IsNullOrEmpty(fileRoute)) return;
+        if (string.IsNullOrEmpty(fileRoute)) return Task.CompletedTask;
 
-        // Quitamos la barra inicial si existe
-        var relativePath = fileRoute.TrimStart('/');
+        // Convertir la URL relativa ("/uploads/avatars/foto.jpg") a ruta física
+        // Quitamos la barra inicial y reemplazamos los separadores web por los del SO
+        var relativePath = fileRoute.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString());
         var filePath = Path.Combine(env.WebRootPath, relativePath);
 
         if (File.Exists(filePath))
         {
             File.Delete(filePath);
         }
+
+        return Task.CompletedTask;
     }
 }

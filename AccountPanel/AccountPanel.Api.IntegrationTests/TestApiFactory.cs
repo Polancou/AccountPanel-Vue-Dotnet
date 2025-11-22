@@ -139,7 +139,7 @@ public class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddScoped<ITokenService, TokenService>();
             services.AddScoped<IExternalAuthValidator, GoogleAuthValidator>();
             services.AddScoped<IAdminService, AdminService>();
-            services.AddScoped<IFileStorageService, FileStorageService>();
+            services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
             // --- 4. Re-registrar Otras Dependencias ---
             services.AddAutoMapper(cfg => { cfg.LicenseKey = Configuration["AutoMapper:Key"]; },

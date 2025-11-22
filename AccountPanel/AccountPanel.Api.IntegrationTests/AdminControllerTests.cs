@@ -233,11 +233,11 @@ public class AdminControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetim
         // 1. Verifica que la respuesta sea 400 Bad Request
         response.StatusCode.Should().Be(expected: HttpStatusCode.BadRequest);
 
-        // 2. [AÑADIDO] Verifica el mensaje de error (como en ProfileControllerTests)
+        // Verifica el mensaje de error (como en ProfileControllerTests)
         var errorBody = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        errorBody["Message"].ToString().Should().Be("No se puede eliminar el administrador.");
+        errorBody["message"].ToString().Should().Be("No se puede eliminar el administrador.");
 
-        // 3. [AÑADIDO] Verifica que el admin NO fue eliminado de la BD
+        // Verifica que el admin NO fue eliminado de la BD
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var adminUser = await context.Usuarios.FindAsync(adminId);
@@ -264,7 +264,7 @@ public class AdminControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetim
         // --- Assert (Verificar) ---
         response.StatusCode.Should().Be(expected: HttpStatusCode.NotFound);
         var errorBody = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        errorBody["Message"].ToString().Should().Be("No se encontró el usuario.");
+        errorBody["message"].ToString().Should().Be("No se encontró el usuario.");
     }
 
     /// <summary>
@@ -371,7 +371,7 @@ public class AdminControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetim
         // --- Assert (Verificar) ---
         response.StatusCode.Should().Be(expected: HttpStatusCode.NotFound);
         var errorBody = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        errorBody["Message"].ToString().Should().Be("No se encontró el usuario.");
+        errorBody["message"].ToString().Should().Be("No se encontró el usuario.");
     }
 
     /// <summary>
@@ -443,7 +443,7 @@ public class AdminControllerTests : IClassFixture<TestApiFactory>, IAsyncLifetim
         // --- Assert (Verificar) ---
         response.StatusCode.Should().Be(expected: HttpStatusCode.BadRequest);
         var errorBody = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        errorBody["Message"].ToString().Should().Be("No se puede actualizar el rol del administrador.");
+        errorBody["message"].ToString().Should().Be("No se puede actualizar el rol del administrador.");
     }
 
     #endregion
