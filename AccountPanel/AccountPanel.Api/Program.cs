@@ -80,7 +80,7 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
     // Configura el limte de peticiones, si no existe, usa 5 por defecto
-    var authPermitLimit = builder.Configuration.GetValue<int>("RateLimiting:AuthPermitLimit", 5);
+    var authPermitLimit = builder.Configuration.GetValue("RateLimiting:AuthPermitLimit", 10);
     // Política Estricta para Autenticación
     // Permite 5 intentos cada 60 segundos por dirección IP.
     options.AddFixedWindowLimiter("AuthPolicy", opt =>
@@ -114,17 +114,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt Key no configurado"))),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("Jwt Issuer no configurado"),
             ValidateAudience = false
         };
     })
     .AddGoogle(options =>
     {
         var googleAuthNSection = builder.Configuration.GetSection("Authentication:Google");
-        options.ClientId = googleAuthNSection["ClientId"];
-        options.ClientSecret = googleAuthNSection["ClientSecret"];
+        options.ClientId = googleAuthNSection["ClientId"] ?? throw new InvalidOperationException("Google ClientId no encontrado");
+        options.ClientSecret = googleAuthNSection["ClientSecret"] ?? throw new InvalidOperationException("Google ClientSecret no configurado");
     });
 
 // --- Configuración de Versionado de API ---
@@ -209,7 +209,5 @@ namespace AccountPanel.Api
     /// lo cual es un requisito para que la clase WebApplicationFactory del proyecto de pruebas
     /// de integración (AccountPanel.Api.IntegrationTests) pueda descubrir y arrancar la API en memoria.
     /// </summary>
-    public partial class Program
-    {
-    }
+    public class Program;
 }
