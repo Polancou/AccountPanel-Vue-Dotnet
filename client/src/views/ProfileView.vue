@@ -125,7 +125,7 @@ const cancelEdit = () => {
 };
 
 const profileImageUrl = computed(() => {
-  const avatarUrl = authStore.userProfile?.avatarUrl;
+  const avatarUrl = authStore.userProfile?.avatarUrl?.trim();
   const genericAvatar = 'https://www.phoenixptsp.com/wp-content/uploads/2019/01/generic-profile-icon-10.jpg.png';
 
   if (!avatarUrl) {

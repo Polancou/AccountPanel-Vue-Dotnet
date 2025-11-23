@@ -228,14 +228,17 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function refreshAccessToken(): Promise<boolean> {
     try {
-      // Petición sin body. El navegador envía la cookie 'refreshToken' automáticamente.
-      const response = await apiClient.post<{ accessToken: string }>('/v1/auth/refresh')
-      const { accessToken } = response.data
-      setAuthState(accessToken)
-      return true
+      // Definimos que esperamos recibir solo el accessToken nuevo.
+      const response = await apiClient.post<{ accessToken: string }>('/v1/auth/refresh');
+
+      const { accessToken } = response.data;
+      setAuthState(accessToken); // Guardamos el nuevo access token en memoria
+      return true;
     } catch (error) {
-      console.error("No se pudo refrescar el token (Cookie inválida o expirada)", error)
-      return false
+      console.error("No se pudo refrescar la sesión (Cookie inválida o expirada)");
+      // Si falla, forzamos logout para limpiar cualquier residuo
+      logoutLocally();
+      return false;
     }
   }
 
@@ -243,23 +246,32 @@ export const useAuthStore = defineStore('auth', () => {
    * Lógica de inicio: Si no hay token en memoria, intenta obtener uno via Cookie.
    */
   async function checkAuthOnStart(): Promise<void> {
+    // CNo hay token en memoria
     if (!token.value) {
-      try {
-        await refreshAccessToken(); // Si la cookie es válida, recuperamos la sesión
-      } catch {
-        // Si falla, el usuario permanece deslogueado, no es un error crítico
-      }
-    } else {
-      // Validación extra: si por alguna razón el token persistió pero expiró
+      // Intentamos recuperar la sesión usando la cookie
+      await refreshAccessToken();
+      // No importa si falla (return false), el usuario simplemente sigue deslogueado.
+    }
+    // Hay un token persistido (por configuración o recarga rápida)
+    else {
       try {
         const decoded = jwtDecode<JwtPayload>(token.value);
         const currentTime = Date.now() / 1000;
+
+        // Verificamos si expiró o está a punto (margen de 10s)
         if (decoded.exp < currentTime + 10) {
-          await refreshAccessToken();
+          console.log("Token en memoria expirado, intentando refrescar...");
+          const success = await refreshAccessToken();
+
+          // Si el refresco falla, limpiamos el token expirado
+          if (!success) {
+            logoutLocally();
+          }
         }
-      } catch {
-        // Token corrupto
-        token.value = null;
+      } catch (e) {
+        // Si el token no se puede decodificar (corrupto), limpiamos
+        console.error("Token corrupto al inicio:", e);
+        logoutLocally();
       }
     }
   }
