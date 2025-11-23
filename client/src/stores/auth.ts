@@ -235,7 +235,7 @@ export const useAuthStore = defineStore('auth', () => {
       setAuthState(accessToken); // Guardamos el nuevo access token en memoria
       return true;
     } catch (error) {
-      console.error("No se pudo refrescar la sesión (Cookie inválida o expirada)");
+      console.error("No se pudo refrescar la sesión (Cookie inválida o expirada)", error);
       // Si falla, forzamos logout para limpiar cualquier residuo
       logoutLocally();
       return false;
