@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import apiClient from '@/services/api';
-import { useRouter } from 'vue-router'
+import router from '@/router'
 import type {
   LoginUsuarioDto, RegistroUsuarioDto, PerfilUsuarioDto, ActualizarPerfilDto,
   CambiarPasswordDto, JwtPayload, ForgotPasswordDto, ResetPasswordDto,
@@ -30,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
   const userProfile = ref<PerfilUsuarioDto | null>(null)
   const userRole = ref<string | null>(null)
 
-  const router = useRouter()
+
 
   // --- Getters ---
 
@@ -230,7 +230,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // Definimos que esperamos recibir solo el accessToken nuevo.
       const response = await apiClient.post<{ accessToken: string }>('/v1/auth/refresh');
-
+      console.log("Respuesta Refresh:", response.data);
       const { accessToken } = response.data;
       setAuthState(accessToken); // Guardamos el nuevo access token en memoria
       return true;
@@ -246,14 +246,18 @@ export const useAuthStore = defineStore('auth', () => {
    * Lógica de inicio: Si no hay token en memoria, intenta obtener uno via Cookie.
    */
   async function checkAuthOnStart(): Promise<void> {
-    // CNo hay token en memoria
+    console.log("checkAuthOnStart: Iniciando...");
+    // No hay token en memoria
     if (!token.value) {
+      console.log("checkAuthOnStart: No hay token en memoria. Intentando refrescar...");
       // Intentamos recuperar la sesión usando la cookie
-      await refreshAccessToken();
+      const success = await refreshAccessToken();
+      console.log("checkAuthOnStart: Resultado de refreshAccessToken:", success);
       // No importa si falla (return false), el usuario simplemente sigue deslogueado.
     }
     // Hay un token persistido (por configuración o recarga rápida)
     else {
+      console.log("checkAuthOnStart: Token encontrado en memoria.");
       try {
         const decoded = jwtDecode<JwtPayload>(token.value);
         const currentTime = Date.now() / 1000;
@@ -274,6 +278,7 @@ export const useAuthStore = defineStore('auth', () => {
         logoutLocally();
       }
     }
+    console.log("checkAuthOnStart: Finalizado. isAuthenticated:", isAuthenticated.value);
   }
 
   async function handleGoogleLogin(response: GoogleCredentialResponse) {

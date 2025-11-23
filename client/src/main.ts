@@ -15,11 +15,14 @@ pinia.use(piniaPluginPersistedstate)
 const app = createApp(App)
 
 app.use(pinia)
-app.use(router)
 app.use(vue3GoogleLogin, { clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID })
 
 const authStore = useAuthStore()
 
+console.log("Main: Calling checkAuthOnStart");
 authStore.checkAuthOnStart().then(() => {
+  console.log("Main: checkAuthOnStart resolved. Installing router and mounting app...");
+  app.use(router)
   app.mount('#app')
+  console.log("Main: App mounted.");
 })

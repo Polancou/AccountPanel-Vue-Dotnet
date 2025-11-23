@@ -22,15 +22,15 @@ public class AuthController(IAuthService authService) : ControllerBase
     {
         var cookieOptions = new CookieOptions
         {
-            HttpOnly = true,   
-            Expires = DateTime.UtcNow.AddDays(30), 
-            SameSite = SameSiteMode.None, // Protege contra CSRF
-            Secure = true // Solo se envía por HTTPS (localhost lo permite en dev)
+            HttpOnly = true,
+            Expires = DateTime.UtcNow.AddDays(30),
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps // Solo Secure=true si estamos en HTTPS
         };
-        
+
         Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
     }
-    
+
     /// <summary>
     /// Endpoint para registrar un nuevo usuario en el sistema.
     /// </summary>
@@ -92,20 +92,18 @@ public class AuthController(IAuthService authService) : ControllerBase
     /// Endpoint para refrescar un token de acceso usando un refresh token.
     /// </summary>
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh() 
+    public async Task<IActionResult> Refresh()
     {
-        // 1. Leer el token desde la Cookie 
+        // Leer el token desde la Cookie 
         var refreshToken = Request.Cookies["refreshToken"];
-
+        // Si el token no se encuentra, se retorna un error
         if (string.IsNullOrEmpty(refreshToken))
-        {
             return BadRequest(new { message = "No se encontró el token de refresco en las cookies." });
-        }
 
-        // 2. Validar y rotar
+        // Validar y rotar
         var tokenResponse = await authService.RefreshTokenAsync(refreshToken);
-        
-        // 3. Actualizar la cookie con el nuevo token
+
+        // Actualizar la cookie con el nuevo token
         SetRefreshTokenInCookie(tokenResponse.RefreshToken);
 
         return Ok(new { accessToken = tokenResponse.AccessToken });
@@ -132,7 +130,8 @@ public class AuthController(IAuthService authService) : ControllerBase
     /// <returns>
     /// Un resultado 200 OK si el token es válido.
     /// Un resultado 400 Bad Request si el token no es válido.
-    [HttpGet("verify-email")] 
+    /// </returns>
+    [HttpGet("verify-email")]
     public async Task<IActionResult> VerifyEmail([FromQuery] string token)
     {
         // Se delega la lógica de verificación de email al servicio de autenticación
@@ -142,7 +141,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         // Si el registro fue exitoso, se devuelve una respuesta afirmativa.
         return Ok(new { message = result.Message });
     }
-    
+
     /// <summary>
     /// Endpoint para restablecer la contraseña de un usuario.
     /// </summary>
@@ -162,11 +161,11 @@ public class AuthController(IAuthService authService) : ControllerBase
         // Si el registro fue exitoso, se devuelve una respuesta afirmativa.
         return Ok(new { message = result.Message });
     }
-    
+
     /// <summary>
     /// Endpoint que inicia el proceso de restablecimiento de contraseña.
     /// </summary>
-    /// <param name="email">El email del usuario que olvidó su contraseña.</param>
+    /// <param name="dto">El DTO con el email del usuario que olvidó su contraseña.</param>
     /// <returns>
     /// Un resultado 200 OK si el proceso de restablecimiento fue iniciado correctamente.
     /// Un resultado 400 Bad Request si el email no existe o no se pudo iniciar el proceso.
