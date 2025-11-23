@@ -24,7 +24,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             HttpOnly = true,   
             Expires = DateTime.UtcNow.AddDays(30), 
-            SameSite = SameSiteMode.Strict, // Protege contra CSRF
+            SameSite = SameSiteMode.None, // Protege contra CSRF
             Secure = true // Solo se envía por HTTPS (localhost lo permite en dev)
         };
         
@@ -90,29 +90,25 @@ public class AuthController(IAuthService authService) : ControllerBase
 
     /// <summary>
     /// Endpoint para refrescar un token de acceso usando un refresh token.
-    /// <param name="refreshTokenRequest">El token de refresco.</param>
-    /// <returns>
-    /// Un resultado 200 OK con el token de acceso y el refresh token.
-    /// Un resultado 400 Bad Request si el token de refresco no es válido.
     /// </summary>
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto refreshTokenRequest)
+    public async Task<IActionResult> Refresh() 
     {
-        // Intenta leer el token desde la cookie
+        // 1. Leer el token desde la Cookie 
         var refreshToken = Request.Cookies["refreshToken"];
 
         if (string.IsNullOrEmpty(refreshToken))
         {
-            return BadRequest(new { message = "El token de refresco es requerido." });
+            return BadRequest(new { message = "No se encontró el token de refresco en las cookies." });
         }
 
-        // Llama al servicio
-        var result = await authService.RefreshTokenAsync(refreshToken);
+        // 2. Validar y rotar
+        var tokenResponse = await authService.RefreshTokenAsync(refreshToken);
+        
+        // 3. Actualizar la cookie con el nuevo token
+        SetRefreshTokenInCookie(tokenResponse.RefreshToken);
 
-        // Rotación de tokens: Actualiza la cookie con el nuevo refresh token
-        SetRefreshTokenInCookie(result.RefreshToken);
-
-        return Ok(new { accessToken = result.AccessToken });
+        return Ok(new { accessToken = tokenResponse.AccessToken });
     }
 
     /// <summary>
