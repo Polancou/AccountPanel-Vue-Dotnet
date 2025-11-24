@@ -83,14 +83,9 @@ router.beforeEach((to, from, next) => {
   // Limpia mensajes de error al navegar
   authStore.error = null;
 
-  console.log(`Router Guard: Navigating to ${String(to.name)}`);
-  console.log(`Router Guard: isAuthenticated = ${authStore.isAuthenticated}`);
-  console.log(`Router Guard: token = ${authStore.token}`);
-
   // Lógica de protección de rutas:
   // 1. ¿La ruta destino requiere autenticación Y el usuario NO está autenticado?
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    console.log("Router Guard: Redirecting to login because not authenticated");
     // Redirige a la página de login.
     // 'next' es la función que permite o bloquea la navegación.
     next({ name: 'login' });
